@@ -1,7 +1,6 @@
 // Test cases shown on the dashboard. Add new ones near the top; archive old ones by setting
 // `archived` to a short reason instead of deleting them, so their history stays visible.
 // Pictures use plain big letters/numbers that match exactly what the screen shows.
-import { FrameStreamer } from "./legacy/stream.ts";
 import { LiveScreen } from "../src/live.ts";
 import { textFrame } from "./sheet.ts";
 import { bigText, numberFrame, sparkleFrame, whiteFrame } from "./frames.ts";
@@ -510,23 +509,8 @@ export const cases: TestCase[] = [
       { label: "3 DONE", rgba: bigText("DONE") },
       BAD_DOWNLOADING,
     ],
-    async run({ s, log, show, layout }) {
-      const { WAIT, DONE } = layout.frames;
-      await show(WAIT, "1 WAIT", 500);
-      const e = await s.funcErase(SCRATCH_BLOCKS, [WAIT], layout.total);
-      log(`stream area cleared (no Downloading) in ${e.eraseMs} ms`);
-      const streamer = new FrameStreamer(s, { startBlock: 0, blocks: SCRATCH_BLOCKS, totalBlocks: layout.total, restEntry: DONE, fps: 8, leadFrames: 8, log });
-      const rand = () => Math.floor(Math.random() * 10000);
-      const t0 = performance.now();
-      await streamer.start(numberFrame(rand()));
-      log("2 numbers streaming");
-      streamer.push(numberFrame(rand()));
-      const timer = setTimeout(() => void streamer.stop(), 30000);
-      await streamer.run(() => streamer.push(numberFrame(rand())));
-      clearTimeout(timer);
-      await streamer.stop();
-      const secs = (performance.now() - t0) / 1000;
-      log(`3 DONE: streamed ${streamer.stats.contentFrames} numbers in ${secs.toFixed(1)} s (${(streamer.stats.contentFrames / secs).toFixed(1)}/s)`);
+    async run() {
+      throw new Error("archived: its streamer was removed with lab/legacy (see git history)");
     },
   },
   {

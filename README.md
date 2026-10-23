@@ -83,7 +83,6 @@ Other notes:
 | `src/modes.ts` | the modes |
 | `src/cli.ts` | the CLI |
 | `lab/` | test lab: on-device experiments and the dashboard for running them |
-| `lab/legacy/` | superseded experiments, kept for reference |
 | `state/` | runtime state (the flash layout) |
 | `PROTOCOL.md` | the screen's USB API and behavior |
 | `LOG.md` | how we got there, including failed experiments |
