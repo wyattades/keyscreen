@@ -17,6 +17,7 @@ from gi.repository import Gio, GLib
 SERVER = os.environ.get("QK108_SERVER", "http://localhost:4110")
 ITEM_PATH = "/StatusNotifierItem"
 MENU_PATH = "/MenuBar"
+ICONS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
 
 ITEM_XML = """
 <node><interface name="org.kde.StatusNotifierItem">
@@ -25,6 +26,7 @@ ITEM_XML = """
   <property name="Title" type="s" access="read"/>
   <property name="Status" type="s" access="read"/>
   <property name="IconName" type="s" access="read"/>
+  <property name="IconThemePath" type="s" access="read"/>
   <property name="ToolTip" type="(sa(iiay)ss)" access="read"/>
   <property name="ItemIsMenu" type="b" access="read"/>
   <property name="Menu" type="o" access="read"/>
@@ -140,7 +142,8 @@ class Indicator:
             "Id": GLib.Variant("s", "qk108-screen"),
             "Title": GLib.Variant("s", "Keyboard screen"),
             "Status": GLib.Variant("s", "Active"),
-            "IconName": GLib.Variant("s", "input-keyboard-symbolic"),
+            "IconName": GLib.Variant("s", "qk108-symbolic" if self.running else "qk108-off-symbolic"),
+            "IconThemePath": GLib.Variant("s", ICONS),
             "ToolTip": GLib.Variant("(sa(iiay)ss)", ("", [], "Keyboard screen", self.tooltip())),
             "ItemIsMenu": GLib.Variant("b", False),
             "Menu": GLib.Variant("o", MENU_PATH),
