@@ -5,7 +5,8 @@ import { bigText } from "../src/textframe.ts";
 
 export { bigText };
 
-const W = 240, H = 136;
+const W = 240,
+  H = 136;
 
 /** A 4-digit number, big. */
 export function numberFrame(n: number): Uint8Array {
@@ -22,12 +23,14 @@ export function sparkleFrame(seed = Math.random(), label = ""): Uint8Array {
   const rgba = new Uint8Array(W * H * 4);
   for (let i = 0; i < W * H; i++) rgba[i * 4 + 3] = 255;
   let x = Math.floor(seed * 2 ** 31) || 1;
-  const rnd = () => ((x = (x * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const rnd = () => (x = (x * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   const dot = (px: number, py: number) => {
     if (px >= 0 && px < W && py >= 0 && py < H) rgba.set([255, 255, 255, 255], (py * W + px) * 4);
   };
   for (let n = 0; n < 28; n++) {
-    const cx = Math.floor(rnd() * W), cy = Math.floor(rnd() * H), r = 2 + Math.floor(rnd() * 5);
+    const cx = Math.floor(rnd() * W),
+      cy = Math.floor(rnd() * H),
+      r = 2 + Math.floor(rnd() * 5);
     for (let d = -r; d <= r; d++) {
       for (let t = -1; t <= 1; t++) {
         dot(cx + d, cy + t);

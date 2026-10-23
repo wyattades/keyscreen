@@ -16,7 +16,12 @@ export function isPng(b: Uint8Array) {
 export function decodePng(buf: Uint8Array): Image {
   if (!isPng(buf)) throw new Error("not a PNG");
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-  let off = 8, width = 0, height = 0, depth = 0, colorType = 0, interlace = 0;
+  let off = 8,
+    width = 0,
+    height = 0,
+    depth = 0,
+    colorType = 0,
+    interlace = 0;
   let palette: Uint8Array | undefined, trns: Uint8Array | undefined;
   const idat: Uint8Array[] = [];
   while (off < buf.length) {
@@ -47,13 +52,18 @@ export function decodePng(buf: Uint8Array): Image {
     const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
     const out = px.subarray(y * stride, (y + 1) * stride);
     for (let x = 0; x < stride; x++) {
-      const a = x >= channels ? out[x - channels] : 0, b = prev[x], c = x >= channels ? prev[x - channels] : 0;
+      const a = x >= channels ? out[x - channels] : 0,
+        b = prev[x],
+        c = x >= channels ? prev[x - channels] : 0;
       let v = line[x];
       if (filter === 1) v += a;
       else if (filter === 2) v += b;
       else if (filter === 3) v += (a + b) >> 1;
       else if (filter === 4) {
-        const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+        const p = a + b - c,
+          pa = Math.abs(p - a),
+          pb = Math.abs(p - b),
+          pc = Math.abs(p - c);
         v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
       }
       out[x] = v & 0xff;
@@ -62,7 +72,8 @@ export function decodePng(buf: Uint8Array): Image {
   }
   const rgba = new Uint8Array(width * height * 4);
   for (let i = 0; i < width * height; i++) {
-    const s = i * channels, d = i * 4;
+    const s = i * channels,
+      d = i * 4;
     if (colorType === 0) rgba.set([px[s], px[s], px[s], 255], d);
     else if (colorType === 4) rgba.set([px[s], px[s], px[s], px[s + 1]], d);
     else if (colorType === 2) rgba.set([px[s], px[s + 1], px[s + 2], 255], d);
@@ -83,13 +94,17 @@ export function fitImage(img: Image, W = 240, H = 136): Uint8Array {
   const out = new Uint8Array(W * H * 4);
   for (let i = 0; i < W * H; i++) out[i * 4 + 3] = 255;
   const scale = Math.min(W / img.width, H / img.height);
-  const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
-  const ox = Math.floor((W - w) / 2), oy = Math.floor((H - h) / 2);
+  const w = Math.max(1, Math.round(img.width * scale)),
+    h = Math.max(1, Math.round(img.height * scale));
+  const ox = Math.floor((W - w) / 2),
+    oy = Math.floor((H - h) / 2);
   for (let y = 0; y < h; y++) {
     const sy = Math.min(img.height - 1, Math.floor(y / scale));
     for (let x = 0; x < w; x++) {
       const sx = Math.min(img.width - 1, Math.floor(x / scale));
-      const s = (sy * img.width + sx) * 4, d = ((oy + y) * W + ox + x) * 4, a = img.rgba[s + 3] / 255;
+      const s = (sy * img.width + sx) * 4,
+        d = ((oy + y) * W + ox + x) * 4,
+        a = img.rgba[s + 3] / 255;
       out[d] = img.rgba[s] * a;
       out[d + 1] = img.rgba[s + 1] * a;
       out[d + 2] = img.rgba[s + 2] * a;

@@ -4,8 +4,13 @@ import { writeFileSync } from "node:fs";
 import { drawText, textWidth } from "../src/font.ts";
 import { encodePng } from "../src/png.ts";
 
-export const W = 240, H = 136;
-const CAPTION_H = 22, PAD = 6, COLS = 2, SHEET_BG = [235, 238, 242], CAPTION = [30, 34, 40];
+export const W = 240,
+  H = 136;
+const CAPTION_H = 22,
+  PAD = 6,
+  COLS = 2,
+  SHEET_BG = [235, 238, 242],
+  CAPTION = [30, 34, 40];
 
 export interface Step {
   /** Short caption, max ~19 characters (uppercase letters, digits, space, ':', '-', '.'). */
@@ -43,18 +48,22 @@ export function writeSheet(path: string, steps: Step[]): string {
 /** PNG contact sheet of the steps (2 per row). */
 export function renderSheet(steps: Step[]): Buffer {
   const rows = Math.ceil(steps.length / COLS);
-  const cellW = W + PAD * 2, cellH = H + CAPTION_H + PAD * 2;
-  const sw = cellW * COLS, sh = cellH * rows;
+  const cellW = W + PAD * 2,
+    cellH = H + CAPTION_H + PAD * 2;
+  const sw = cellW * COLS,
+    sh = cellH * rows;
   const img = new Uint8Array(sw * sh * 4);
   for (let i = 0; i < sw * sh; i++) img.set([SHEET_BG[0], SHEET_BG[1], SHEET_BG[2], 255], i * 4);
   steps.forEach((step, k) => {
-    const ox = (k % COLS) * cellW + PAD, oy = Math.floor(k / COLS) * cellH + PAD;
+    const ox = (k % COLS) * cellW + PAD,
+      oy = Math.floor(k / COLS) * cellH + PAD;
     for (let y = 0; y < H; y++) img.set(step.rgba.subarray(y * W * 4, (y + 1) * W * 4), ((oy + y) * sw + ox) * 4);
     // Caption: draw into a strip, then copy it under the frame.
     const strip = new Uint8Array(W * CAPTION_H * 4);
     for (let i = 0; i < W * CAPTION_H; i++) strip.set([SHEET_BG[0], SHEET_BG[1], SHEET_BG[2], 255], i * 4);
     drawText(strip, W, step.label, 0, 5, 2, CAPTION);
-    for (let y = 0; y < CAPTION_H; y++) img.set(strip.subarray(y * W * 4, (y + 1) * W * 4), ((oy + H + y) * sw + ox) * 4);
+    for (let y = 0; y < CAPTION_H; y++)
+      img.set(strip.subarray(y * W * 4, (y + 1) * W * 4), ((oy + H + y) * sw + ox) * 4);
   });
   return encodePng(img, sw, sh);
 }

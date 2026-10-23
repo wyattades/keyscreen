@@ -18,7 +18,8 @@ import { sleep } from "./hidraw.ts";
 import { QgifStream } from "./qgif.ts";
 import type { Screen, SlotEntry } from "./qk108.ts";
 
-export const LIVE_W = 240, LIVE_H = 136;
+export const LIVE_W = 240,
+  LIVE_H = 136;
 const BLOCK = 65536;
 /** Background writes go out in slices this big, so the playing stream is never starved for long. */
 const SLICE = 56 * 16;
@@ -104,7 +105,15 @@ export class LiveScreen {
   private last: Uint8Array | undefined;
   private running = false;
   private loop: Promise<void> | undefined;
-  stats = { contentFrames: 0, emptyFrames: 0, rotations: 0, fallbackRotations: 0, starvedMs: 0, maxBehindFrames: 0, maxContentGapMs: 0 };
+  stats = {
+    contentFrames: 0,
+    emptyFrames: 0,
+    rotations: 0,
+    fallbackRotations: 0,
+    starvedMs: 0,
+    maxBehindFrames: 0,
+    maxContentGapMs: 0,
+  };
   private lastContentShowAt = 0;
   private lastPushAt = 0;
   private mainStream: Stream | undefined;
@@ -112,7 +121,17 @@ export class LiveScreen {
   constructor(screen: Screen, opts: LiveOptions) {
     this.s = screen;
     // Defaults from on-device tests: 10 fps (no frame-time rounding drift), 0.3 s buffer, no padding.
-    this.o = { fps: 10, leadFrames: 3, startDelayMs: 0, padFrameBytes: 0, playbackSlowdown: 1.01, maxStreamAgeMs: 10 * 60_000, logGaps: false, log: () => {}, ...opts };
+    this.o = {
+      fps: 10,
+      leadFrames: 3,
+      startDelayMs: 0,
+      padFrameBytes: 0,
+      playbackSlowdown: 1.01,
+      maxStreamAgeMs: 10 * 60_000,
+      logGaps: false,
+      log: () => {},
+      ...opts,
+    };
     // 4 packets in flight: ~55 KB/s instead of ~18 KB/s, verified clean (dashboard `fast-writes`).
     this.s.writeWindow = 4;
   }
@@ -228,11 +247,12 @@ export class LiveScreen {
       st.content = rgba;
       this.stats.contentFrames++;
       // When this frame will be on screen, and the longest gap between new content on screen so far.
-      const showAt = st.t0 + (st.written) * this.frameMs;
+      const showAt = st.t0 + st.written * this.frameMs;
       if (this.lastContentShowAt && showAt > this.lastContentShowAt) {
         const gap = Math.round(showAt - this.lastContentShowAt);
         this.stats.maxContentGapMs = Math.max(this.stats.maxContentGapMs, gap);
-        if (gap > 300 && this.o.logGaps) this.o.log(`content gap ${gap} ms (phase ${this.phase}, stream @ block ${st.block}, frame ${st.written})`);
+        if (gap > 300 && this.o.logGaps)
+          this.o.log(`content gap ${gap} ms (phase ${this.phase}, stream @ block ${st.block}, frame ${st.written})`);
       }
       this.lastContentShowAt = Math.max(this.lastContentShowAt, showAt);
     } else {

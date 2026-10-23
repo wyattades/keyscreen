@@ -6,7 +6,9 @@
   "scripts": {
     "qk108": "bun src/cli.ts",
     "lab": "bun lab/lab.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "engines": {
     "bun": ">=1.1"
@@ -14,6 +16,7 @@
   "devDependencies": {
     "@types/bun": "^1.4.3",
     "@types/node": "^26.6.5",
+    "prettier": "^3.9.10",
     "typescript": "^7.0.2"
   },
   "packageManager": "pnpm@12.14.0",

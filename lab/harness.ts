@@ -53,7 +53,11 @@ export const SCRATCH_BLOCKS = 16;
 /** One-frame QGIF of big text. */
 export const textGif = (text: string) => encodeQgif([{ rgba: bigText(text) }], { width: 240, height: 136, fps: 1 });
 
-export async function withContext(log: (m: string) => void, needsLayout: boolean, fn: (t: TestContext) => Promise<void>) {
+export async function withContext(
+  log: (m: string) => void,
+  needsLayout: boolean,
+  fn: (t: TestContext) => Promise<void>,
+) {
   const layout = loadLayout();
   if (needsLayout && !layout) throw new Error("No flash layout yet (or an old one). Run 'One-time setup' first.");
   const s = await Screen.connect(15000, log);
@@ -74,7 +78,9 @@ export async function withContext(log: (m: string) => void, needsLayout: boolean
     try {
       await s.status();
     } catch {
-      throw new Error("Screen chip not responding. Power-cycle the keyboard (unplug USB, power switch off ~10 s, back on), then run 'Is the screen chip responding?'.");
+      throw new Error(
+        "Screen chip not responding. Power-cycle the keyboard (unplug USB, power switch off ~10 s, back on), then run 'Is the screen chip responding?'.",
+      );
     }
     const onInput = (cb: (line: string) => void) => {
       process.stdin.setEncoding("utf8");
@@ -86,10 +92,21 @@ export async function withContext(log: (m: string) => void, needsLayout: boolean
         for (const line of lines) if (line.trim()) cb(line.trim());
       });
     };
-    await fn({ s, log, idle, show, layout: layout ?? ({ total: 0, managed: 0, frames: {} } as unknown as Layout), onInput });
+    await fn({
+      s,
+      log,
+      idle,
+      show,
+      layout: layout ?? ({ total: 0, managed: 0, frames: {} } as unknown as Layout),
+      onInput,
+    });
   } finally {
     s.close();
   }
 }
 
-export const hex = (b: Uint8Array, from = 0, n = 24) => Buffer.from(b.subarray(from, from + n)).toString("hex").replace(/(..)/g, "$1 ").trim();
+export const hex = (b: Uint8Array, from = 0, n = 24) =>
+  Buffer.from(b.subarray(from, from + n))
+    .toString("hex")
+    .replace(/(..)/g, "$1 ")
+    .trim();

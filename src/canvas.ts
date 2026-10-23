@@ -3,7 +3,8 @@
 // because the screen's format updates whole 4x4 tiles.
 import { GLYPH_H, drawText, textWidth } from "./font.ts";
 
-export const W = 240, H = 136;
+export const W = 240,
+  H = 136;
 export type RGB = [number, number, number];
 
 export class Canvas {
@@ -35,18 +36,22 @@ export class Canvas {
   }
 
   rect(x: number, y: number, w: number, h: number, c: RGB) {
-    const x0 = Math.max(0, Math.round(x)), y0 = Math.max(0, Math.round(y));
-    const x1 = Math.min(W, Math.round(x + w)), y1 = Math.min(H, Math.round(y + h));
-    for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) {
-      const o = (yy * W + xx) * 4;
-      this.rgba[o] = c[0];
-      this.rgba[o + 1] = c[1];
-      this.rgba[o + 2] = c[2];
-    }
+    const x0 = Math.max(0, Math.round(x)),
+      y0 = Math.max(0, Math.round(y));
+    const x1 = Math.min(W, Math.round(x + w)),
+      y1 = Math.min(H, Math.round(y + h));
+    for (let yy = y0; yy < y1; yy++)
+      for (let xx = x0; xx < x1; xx++) {
+        const o = (yy * W + xx) * 4;
+        this.rgba[o] = c[0];
+        this.rgba[o + 1] = c[1];
+        this.rgba[o + 2] = c[2];
+      }
   }
 
   disc(cx: number, cy: number, r: number, c: RGB) {
-    for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r + r) this.px(cx + x, cy + y, c);
+    for (let y = -r; y <= r; y++)
+      for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r + r) this.px(cx + x, cy + y, c);
   }
 
   line(x0: number, y0: number, x1: number, y1: number, r: number, c: RGB) {

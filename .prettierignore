@@ -1,0 +1,5 @@
+pnpm-lock.yaml
+lab/runs/
+lab/pictures/
+lab/results.jsonl
+state/

@@ -14,7 +14,8 @@ const BAD_DOWNLOADING = { label: "BAD: DOWNLOADING", rgba: textFrame("DOWNLOADIN
 function dot(rgba: Uint8Array, x: number, y: number) {
   for (let dy = -2; dy <= 2; dy++) {
     for (let dx = -2; dx <= 2; dx++) {
-      const px = x + dx, py = y + dy;
+      const px = x + dx,
+        py = y + dy;
       if (px >= 0 && px < 240 && py >= 0 && py < 136) rgba.set([255, 255, 255, 255], (py * 240 + px) * 4);
     }
   }
@@ -37,14 +38,14 @@ function sampleDrawing(): Uint8Array {
   return rgba;
 }
 
-const isQgif = (b: Uint8Array, at = 8) => b[at] === 0x51 && b[at + 1] === 0x47 && b[at + 2] === 0x49 && b[at + 3] === 0x46;
+const isQgif = (b: Uint8Array, at = 8) =>
+  b[at] === 0x51 && b[at + 1] === 0x47 && b[at + 2] === 0x49 && b[at + 3] === 0x46;
 
 export const cases: TestCase[] = [
   {
     id: "setup-layout",
     title: "One-time setup",
-    description:
-      `Sets up the screen's flash for the tests and the screen service: ${MANAGED_BLOCKS} free blocks for live streaming, plus three stored frames (WAIT, DONE and a blank one). Run once, or again if tests say the layout is missing.`,
+    description: `Sets up the screen's flash for the tests and the screen service: ${MANAGED_BLOCKS} free blocks for live streaming, plus three stored frames (WAIT, DONE and a blank one). Run once, or again if tests say the layout is missing.`,
     success: "1 the screen's Downloading screen for about 15 s, then 2 WAIT, then 3 DONE.",
     noLayout: true,
     expect: () => [
@@ -66,7 +67,8 @@ export const cases: TestCase[] = [
   {
     id: "screen-check",
     title: "Is the screen chip responding?",
-    description: "Read-only ping. Run this after a power cycle, or if a test fails right away, to see if the screen chip answers.",
+    description:
+      "Read-only ping. Run this after a power cycle, or if a test fails right away, to see if the screen chip answers.",
     success: "Nothing changes on screen. The log says the link is usb.",
     readOnly: true,
     noLayout: true,
@@ -82,7 +84,8 @@ export const cases: TestCase[] = [
     description:
       "The slot table starts with a byte every tool leaves at 0. This sets it to 8 to see if the erase then starts at block 8 instead of 0. If it works, the stream can recycle flash with no pause.",
     success: "1 WAIT, 2-5 A B C D, 6 WAIT for 3 s, then 7 A, 8 E, 9 C, 10 D, 11 DONE. No white, no Downloading.",
-    archived: "Answered: no. Step 7 white (block 0 erased) and step 8 E with white artifacts (block 8 NOT erased). The header byte is ignored; the erase always clears blocks 0..allocation-1 (2026-10-22).",
+    archived:
+      "Answered: no. Step 7 white (block 0 erased) and step 8 E with white artifacts (block 8 NOT erased). The header byte is ignored; the erase always clears blocks 0..allocation-1 (2026-10-22).",
     expect: () => [
       { label: "1 WAIT", rgba: bigText("WAIT") },
       { label: "2 A", rgba: bigText("A") },
@@ -104,7 +107,12 @@ export const cases: TestCase[] = [
       await show(WAIT, "1 WAIT", 800);
       const prep = await s.funcErase(12, [WAIT], layout.total);
       log(`setup: erased blocks 0-11 in ${prep.eraseMs} ms`);
-      const markers: [number, string][] = [[0, "A"], [8, "B"], [10, "C"], [11, "D"]];
+      const markers: [number, string][] = [
+        [0, "A"],
+        [8, "B"],
+        [10, "C"],
+        [11, "D"],
+      ];
       const entry: Record<number, { start: number; length: number }> = {};
       for (const [b, t] of markers) {
         const g = textGif(t);
@@ -128,7 +136,8 @@ export const cases: TestCase[] = [
   {
     id: "lag-meter",
     title: "Lag meter (corrected, 2.5 min)",
-    archived: "Failed 2026-10-22: with a 600 ms start-up correction the screen went white right away, then garbled; stopped by the user. The screen reads ahead of what it shows, so it needs data written ~0.7 s+ before display. The correction made us write too late.",
+    archived:
+      "Failed 2026-10-22: with a 600 ms start-up correction the screen went white right away, then garbled; stopped by the user. The screen reads ahead of what it shows, so it needs data written ~0.7 s+ before display. The correction made us write too late.",
     description:
       "10 fps, plus a 0.6 s correction for the screen's start-up delay, and a longer run to see any remaining drift. While it runs, this card shows a counter going up 4 times a second; the keyboard shows the same counter.",
     success:
@@ -144,8 +153,20 @@ export const cases: TestCase[] = [
     ],
     async run({ s, log, layout }) {
       const { WAIT, DONE } = layout.frames;
-      const PERIOD = 250, fps = 10, lead = 3, startDelayMs = 600;
-      const live = new LiveScreen(s, { streamBlocks: 15, parkBlocks: 1, totalBlocks: layout.total, fallback: WAIT, fps, leadFrames: lead, startDelayMs, log });
+      const PERIOD = 250,
+        fps = 10,
+        lead = 3,
+        startDelayMs = 600;
+      const live = new LiveScreen(s, {
+        streamBlocks: 15,
+        parkBlocks: 1,
+        totalBlocks: layout.total,
+        fallback: WAIT,
+        fps,
+        leadFrames: lead,
+        startDelayMs,
+        log,
+      });
       log("1 WAIT, clearing");
       const t0 = Date.now() + 2000;
       const count = () => Math.max(0, Math.floor((Date.now() - t0) / PERIOD));
@@ -169,7 +190,8 @@ export const cases: TestCase[] = [
   {
     id: "readahead-pad",
     title: "Read-ahead: small vs padded filler",
-    archived: "Result 2026-10-22: A (normal) 4 then 5 counts behind; B (1.5 KB frames) 3 then 3. Padding cut ~0.25 s and stopped the creep, so the read-ahead is at least partly byte-based.",
+    archived:
+      "Result 2026-10-22: A (normal) 4 then 5 counts behind; B (1.5 KB frames) 3 then 3. Padding cut ~0.25 s and stopped the creep, so the read-ahead is at least partly byte-based.",
     description:
       "Is the screen's ~1 s read-ahead a fixed time or a fixed number of bytes? Phase A streams normal tiny filler frames; phase B pads every frame to ~1.5 KB (same picture, more bytes). If the keyboard is clearly less behind in B, padding cuts the delay.",
     success:
@@ -185,15 +207,31 @@ export const cases: TestCase[] = [
     ],
     async run({ s, log, layout }) {
       const { WAIT, DONE } = layout.frames;
-      const PERIOD = 250, fps = 10, lead = 3;
+      const PERIOD = 250,
+        fps = 10,
+        lead = 3;
       const t0 = Date.now() + 2500;
       const count = () => Math.max(0, Math.floor((Date.now() - t0) / PERIOD));
-      for (const [phase, pad] of [["A", 0], ["B", 1500]] as const) {
-        const live = new LiveScreen(s, { streamBlocks: 15, parkBlocks: 1, totalBlocks: layout.total, fallback: WAIT, fps, leadFrames: lead, padFrameBytes: pad, log });
+      for (const [phase, pad] of [
+        ["A", 0],
+        ["B", 1500],
+      ] as const) {
+        const live = new LiveScreen(s, {
+          streamBlocks: 15,
+          parkBlocks: 1,
+          totalBlocks: layout.total,
+          fallback: WAIT,
+          fps,
+          leadFrames: lead,
+          padFrameBytes: pad,
+          log,
+        });
         log(`phase ${phase}: clearing (WAIT)`);
         await live.start(bigText(`${phase} ${count()}`));
         if (phase === "A") log(`SYNC ${t0} ${PERIOD}`);
-        log(`${phase === "A" ? 2 : 3} phase ${phase}: ${fps} fps, buffer ${(lead * 1000) / fps} ms, frames padded to ${pad || "no"} bytes`);
+        log(
+          `${phase === "A" ? 2 : 3} phase ${phase}: ${fps} fps, buffer ${(lead * 1000) / fps} ms, frames padded to ${pad || "no"} bytes`,
+        );
         let shown = -1;
         const ticker = setInterval(() => {
           const n = count();
@@ -213,7 +251,8 @@ export const cases: TestCase[] = [
   {
     id: "reaction-latency",
     title: "Reaction test: real delay",
-    archived: "Result 2026-10-23: medians no padding ~580 ms (437-583), 1.5 KB ~925 ms (687-957), 3 KB ~843 ms (one 1945 mid-recycle; 488/521 right after a fresh stream). Padding hurts. Delay creeps up within a stream (~1% slow playback) and resets to ~0.5 s on a fresh stream.",
+    archived:
+      "Result 2026-10-23: medians no padding ~580 ms (437-583), 1.5 KB ~925 ms (687-957), 3 KB ~843 ms (one 1945 mid-recycle; 488/521 right after a fresh stream). Padding hurts. Delay creeps up within a stream (~1% slow playback) and resets to ~0.5 s on a fresh stream.",
     description:
       "Measures the delay without counting. Watch only the keyboard: it shows GO now and then, and you click SEEN on this card each time. The computer works out the delay (assuming a typical 250 ms reaction time).",
     success:
@@ -254,7 +293,15 @@ export const cases: TestCase[] = [
 
       const results: string[] = [];
       // One stream for the whole test (no WAIT between settings); padding changes between rounds.
-      const live = new LiveScreen(s, { streamBlocks: 13, parkBlocks: 3, totalBlocks: layout.total, fallback: WAIT, fps: 10, leadFrames: 3, log });
+      const live = new LiveScreen(s, {
+        streamBlocks: 13,
+        parkBlocks: 3,
+        totalBlocks: layout.total,
+        fallback: WAIT,
+        fps: 10,
+        leadFrames: 3,
+        log,
+      });
       await live.start(bigText(""));
       log("2 black. 3 watch for GO (12 in a row, no breaks)");
       for (const pad of [0, 1500, 3000]) {
@@ -268,7 +315,9 @@ export const cases: TestCase[] = [
           const c = await clickAfter(sent, 4500);
           const d = c !== undefined ? c - sent - rt : undefined;
           if (d !== undefined) delays.push(d);
-          log(`  pad ${pad} trial ${k + 1}: ${d !== undefined ? `delay ~${Math.round(d)} ms (click ${Math.round(c! - sent)} ms after send)` : "missed"}`);
+          log(
+            `  pad ${pad} trial ${k + 1}: ${d !== undefined ? `delay ~${Math.round(d)} ms (click ${Math.round(c! - sent)} ms after send)` : "missed"}`,
+          );
           await sleepMs(700);
           live.push(bigText(""));
         }
@@ -301,12 +350,27 @@ export const cases: TestCase[] = [
     ],
     async run({ s, log, layout }) {
       const { WAIT, DONE } = layout.frames;
-      const PERIOD = 250, fps = 10, lead = 3;
+      const PERIOD = 250,
+        fps = 10,
+        lead = 3;
       const t0 = Date.now() + 2500;
       const count = () => Math.max(0, Math.floor((Date.now() - t0) / PERIOD));
-      const phases = [["B", 1500], ["C", 3000], ["D", 5000]] as const;
+      const phases = [
+        ["B", 1500],
+        ["C", 3000],
+        ["D", 5000],
+      ] as const;
       for (const [i, [phase, pad]] of phases.entries()) {
-        const live = new LiveScreen(s, { streamBlocks: 15, parkBlocks: 1, totalBlocks: layout.total, fallback: WAIT, fps, leadFrames: lead, padFrameBytes: pad, log });
+        const live = new LiveScreen(s, {
+          streamBlocks: 15,
+          parkBlocks: 1,
+          totalBlocks: layout.total,
+          fallback: WAIT,
+          fps,
+          leadFrames: lead,
+          padFrameBytes: pad,
+          log,
+        });
         await live.start(bigText(`${phase} ${count()}`));
         if (i === 0) log(`SYNC ${t0} ${PERIOD}`);
         log(`${i + 2} phase ${phase}: frames padded to ${pad} bytes (${(pad * fps) / 1000} KB/s)`);
@@ -329,7 +393,8 @@ export const cases: TestCase[] = [
   {
     id: "draw-pad",
     title: "Drawing pad (live delay)",
-    archived: "Result 2026-10-22: ~2 s delay at every setting (1 s, 0.5 s, 0.25 s). Led to the lag tests; replaced by the reaction test.",
+    archived:
+      "Result 2026-10-22: ~2 s delay at every setting (1 s, 0.5 s, 0.25 s). Led to the lag tests; replaced by the reaction test.",
     description:
       "While this runs, draw on the black pad on this card: whatever you draw shows up on the keyboard screen. Use the Delay buttons to try a 1 s, 0.5 s and 0.25 s safety buffer, and feel how quickly your strokes appear.",
     success:
@@ -345,15 +410,25 @@ export const cases: TestCase[] = [
     ],
     async run({ s, log, layout, onInput }) {
       const { WAIT, DONE } = layout.frames;
-      const W = 240, H = 136;
+      const W = 240,
+        H = 136;
       const canvas = new Uint8Array(W * H * 4);
       const clear = () => {
         canvas.fill(0);
         for (let i = 0; i < W * H; i++) canvas[i * 4 + 3] = 255;
       };
       clear();
-      let dirty = false, dots = 0;
-      const live = new LiveScreen(s, { streamBlocks: 14, parkBlocks: 2, totalBlocks: layout.total, fallback: WAIT, fps: 8, leadFrames: 8, log });
+      let dirty = false,
+        dots = 0;
+      const live = new LiveScreen(s, {
+        streamBlocks: 14,
+        parkBlocks: 2,
+        totalBlocks: layout.total,
+        fallback: WAIT,
+        fps: 8,
+        leadFrames: 8,
+        log,
+      });
       onInput((line) => {
         const [cmd, a, b] = line.split(" ");
         if (cmd === "dot") {
@@ -385,10 +460,12 @@ export const cases: TestCase[] = [
   {
     id: "fast-writes",
     title: "Faster writes",
-    archived: "Passed 2026-10-22: all letters clean. 1 in flight 910 ms (18.5 KB/s); 4, 8 and 16 in flight all 304 ms (55 KB/s, USB's ~1 packet/ms ceiling). LiveScreen now uses 4.",
+    archived:
+      "Passed 2026-10-22: all letters clean. 1 in flight 910 ms (18.5 KB/s); 4, 8 and 16 in flight all 304 ms (55 KB/s, USB's ~1 packet/ms ceiling). LiveScreen now uses 4.",
     description:
       "Writes four letters, each faster than the last: 1, 4, 8 and 16 packets in flight instead of waiting for each reply. Faster writes are the key to smooth, pause-free streaming.",
-    success: "1 WAIT, then 2 A, 3 B, 4 C, 5 D (each clean, about 2 s), then 6 DONE. The log shows how fast each one wrote.",
+    success:
+      "1 WAIT, then 2 A, 3 B, 4 C, 5 D (each clean, about 2 s), then 6 DONE. The log shows how fast each one wrote.",
     expect: () => [
       { label: "1 WAIT", rgba: bigText("WAIT") },
       { label: "2 A - 1 IN FLIGHT", rgba: bigText("A") },
@@ -405,27 +482,36 @@ export const cases: TestCase[] = [
       await show(WAIT, "1 WAIT", 500);
       const e = await s.funcErase(4, [WAIT], layout.total);
       log(`erased blocks 0-3 in ${e.eraseMs} ms`);
-      const runs: [number, string, number][] = [[0, "A", 1], [1, "B", 4], [2, "C", 8], [3, "D", 16]];
+      const runs: [number, string, number][] = [
+        [0, "A", 1],
+        [1, "B", 4],
+        [2, "C", 8],
+        [3, "D", 16],
+      ];
       const written: [number, string, number][] = [];
       for (const [block, letter, window] of runs) {
         const g = textGif(letter);
         try {
           const ms = await s.writeAt(block * 65536, g, window);
-          log(`${letter}: ${g.length} B with ${window} in flight in ${Math.round(ms)} ms = ${(g.length / ms).toFixed(1)} KB/s`);
+          log(
+            `${letter}: ${g.length} B with ${window} in flight in ${Math.round(ms)} ms = ${(g.length / ms).toFixed(1)} KB/s`,
+          );
           written.push([block, letter, g.length]);
         } catch (err) {
           log(`${letter} with ${window} in flight FAILED: ${(err as Error).message}`);
           break;
         }
       }
-      for (const [i, [block, letter, len]] of written.entries()) await show({ start: block, length: len }, `${i + 2} ${letter}`, 2000);
+      for (const [i, [block, letter, len]] of written.entries())
+        await show({ start: block, length: len }, `${i + 2} ${letter}`, 2000);
       await show(DONE, "6 DONE", 300);
     },
   },
   {
     id: "stream-seamless",
     title: "Seamless never-ending stream",
-    archived: "Passed 2026-10-22: 403 numbers in 60 s (6.7/s), 10 rotations, no WAIT, never white or garbled. Short (<0.5 s) pauses about every 5 s with the deliberately tiny 2-block stream area; measured content gaps 375-625 ms around each erase.",
+    archived:
+      "Passed 2026-10-22: 403 numbers in 60 s (6.7/s), 10 rotations, no WAIT, never white or garbled. Short (<0.5 s) pauses about every 5 s with the deliberately tiny 2-block stream area; measured content gaps 375-625 ms around each erase.",
     description:
       "Same random numbers through the same tiny stream area, but rotations hand over to a short parking stream instead of freezing. Now with 3x faster writes and a 0.5 s buffer. If this works, the second monitor can update forever without pausing.",
     success:
@@ -443,7 +529,15 @@ export const cases: TestCase[] = [
     ],
     async run({ s, log, layout }) {
       const { WAIT, DONE } = layout.frames;
-      const live = new LiveScreen(s, { streamBlocks: 2, parkBlocks: 13, totalBlocks: layout.total, fallback: WAIT, fps: 8, leadFrames: 4, log });
+      const live = new LiveScreen(s, {
+        streamBlocks: 2,
+        parkBlocks: 13,
+        totalBlocks: layout.total,
+        fallback: WAIT,
+        fps: 8,
+        leadFrames: 4,
+        log,
+      });
       const rand = () => numberFrame(Math.floor(Math.random() * 10000));
       log("1 WAIT, clearing");
       await live.start(rand());
@@ -455,13 +549,16 @@ export const cases: TestCase[] = [
       await live.stop(DONE);
       const secs = (performance.now() - t0) / 1000;
       const st = live.stats;
-      log(`3 DONE: ${st.contentFrames} numbers in ${secs.toFixed(0)} s (${(st.contentFrames / secs).toFixed(1)}/s), ${st.rotations} seamless rotations, ${st.fallbackRotations} WAIT rotations, max ${st.maxBehindFrames} frames behind lead, starved ~${(st.starvedMs / 1000).toFixed(1)} s`);
+      log(
+        `3 DONE: ${st.contentFrames} numbers in ${secs.toFixed(0)} s (${(st.contentFrames / secs).toFixed(1)}/s), ${st.rotations} seamless rotations, ${st.fallbackRotations} WAIT rotations, max ${st.maxBehindFrames} frames behind lead, starved ~${(st.starvedMs / 1000).toFixed(1)} s`,
+      );
     },
   },
   {
     id: "stream-rotate",
     title: "Never-ending stream (rotation)",
-    archived: "Passed 2026-10-22: 7 rotations in 60 s (6 parked + 1 WAIT), erases ~0.3 s, never white or Downloading. Each rotation froze updates ~3.2 s; replaced by the seamless version.",
+    archived:
+      "Passed 2026-10-22: 7 rotations in 60 s (6 parked + 1 WAIT), erases ~0.3 s, never white or Downloading. Each rotation froze updates ~3.2 s; replaced by the seamless version.",
     description:
       "Streams random numbers for 60 s through a deliberately tiny stream area, so it fills every ~8 s and has to recycle flash. This is how the second monitor will run forever without Downloading.",
     success:
@@ -479,7 +576,15 @@ export const cases: TestCase[] = [
     ],
     async run({ s, log, layout }) {
       const { WAIT, DONE } = layout.frames;
-      const live = new LiveScreen(s, { streamBlocks: 2, parkBlocks: 3, totalBlocks: layout.total, fallback: WAIT, fps: 8, leadFrames: 8, log });
+      const live = new LiveScreen(s, {
+        streamBlocks: 2,
+        parkBlocks: 3,
+        totalBlocks: layout.total,
+        fallback: WAIT,
+        fps: 8,
+        leadFrames: 8,
+        log,
+      });
       const rand = () => numberFrame(Math.floor(Math.random() * 10000));
       log("1 WAIT, clearing");
       await live.start(rand());
@@ -491,16 +596,20 @@ export const cases: TestCase[] = [
       await live.stop(DONE);
       const secs = (performance.now() - t0) / 1000;
       const st = live.stats;
-      log(`6 DONE: ${st.contentFrames} numbers in ${secs.toFixed(0)} s, ${st.rotations} parked rotations + ${st.fallbackRotations} WAIT rotations, starved ~${(st.starvedMs / 1000).toFixed(1)} s`);
+      log(
+        `6 DONE: ${st.contentFrames} numbers in ${secs.toFixed(0)} s, ${st.rotations} parked rotations + ${st.fallbackRotations} WAIT rotations, starved ~${(st.starvedMs / 1000).toFixed(1)} s`,
+      );
     },
   },
   {
     id: "stream-random",
     title: "Live random numbers, no Downloading",
-    archived: "Superseded by the rotation tests, which stream the same random numbers and also clear flash without Downloading.",
+    archived:
+      "Superseded by the rotation tests, which stream the same random numbers and also clear flash without Downloading.",
     description:
       "The computer makes up a random number several times a second and streams it to the screen. The stream area is cleared first with the no-Downloading erase.",
-    success: "1 WAIT, then 2 four-digit numbers changing several times a second for 30 s, then 3 DONE. Never Downloading.",
+    success:
+      "1 WAIT, then 2 four-digit numbers changing several times a second for 30 s, then 3 DONE. Never Downloading.",
     expect: () => [
       { label: "1 WAIT", rgba: bigText("WAIT") },
       { label: "2 RANDOM NUMBERS", rgba: numberFrame(4821) },
@@ -519,7 +628,8 @@ export const cases: TestCase[] = [
     description: "Read-only. Asks the screen for data at a flash address where a known picture is stored.",
     success: "Nothing changes on screen. The log ends with a VERDICT line.",
     readOnly: true,
-    archived: "Answered: no. READ_FUNC (14) at a nonzero address (0x100000) got no reply and froze the screen chip (2026-10-22). Reads only return the table.",
+    archived:
+      "Answered: no. READ_FUNC (14) at a nonzero address (0x100000) got no reply and froze the screen chip (2026-10-22). Reads only return the table.",
     expect: () => [{ label: "1 NO CHANGE", rgba: bigText("NO CHANGE") }],
     async run({ s, log, layout }) {
       const addr = layout.frames.WAIT.start * 65536;
@@ -530,7 +640,8 @@ export const cases: TestCase[] = [
   {
     id: "lag-meter-8fps",
     title: "Lag meter (8 fps)",
-    archived: "Result 2026-10-22: ~5 counts behind at the start, ~12 at the end of 45 s. The screen plays ~4% slower than 8 fps (likely 130 ms frames), so lag grows; plus ~1 s start-up delay.",
+    archived:
+      "Result 2026-10-22: ~5 counts behind at the start, ~12 at the end of 45 s. The screen plays ~4% slower than 8 fps (likely 130 ms frames), so lag grows; plus ~1 s start-up delay.",
     description:
       "Measures the real delay. While it runs, this card shows a big counter that goes up 4 times a second, and the keyboard screen shows the same counter, made live by the computer. The difference tells us the delay (each count = 0.25 s).",
     success:
@@ -545,8 +656,17 @@ export const cases: TestCase[] = [
     ],
     async run({ s, log, layout }) {
       const { WAIT, DONE } = layout.frames;
-      const PERIOD = 250, lead = 2;
-      const live = new LiveScreen(s, { streamBlocks: 14, parkBlocks: 2, totalBlocks: layout.total, fallback: WAIT, fps: 8, leadFrames: lead, log });
+      const PERIOD = 250,
+        lead = 2;
+      const live = new LiveScreen(s, {
+        streamBlocks: 14,
+        parkBlocks: 2,
+        totalBlocks: layout.total,
+        fallback: WAIT,
+        fps: 8,
+        leadFrames: lead,
+        log,
+      });
       log("1 WAIT, clearing");
       const t0 = Date.now() + 2000; // counter starts at 0 a moment after the stream starts
       const count = () => Math.max(0, Math.floor((Date.now() - t0) / PERIOD));
@@ -570,7 +690,8 @@ export const cases: TestCase[] = [
   {
     id: "lag-meter-10fps",
     title: "Lag meter (10 fps)",
-    archived: "Result 2026-10-22: ~4 counts behind at the start, ~6 at the end of 45 s. Drift down from ~4% to ~1% (near eyeball precision); start-up delay ~0.7 s (1.0 s minus the 0.3 s buffer).",
+    archived:
+      "Result 2026-10-22: ~4 counts behind at the start, ~6 at the end of 45 s. Drift down from ~4% to ~1% (near eyeball precision); start-up delay ~0.7 s (1.0 s minus the 0.3 s buffer).",
     description:
       "Same as before, but the stream runs at 10 fps (100 ms per frame) to test whether the growing lag came from the screen rounding 125 ms frames to 130 ms. While it runs, this card shows a counter going up 4 times a second; the keyboard shows the same counter.",
     success:
@@ -585,8 +706,18 @@ export const cases: TestCase[] = [
     ],
     async run({ s, log, layout }) {
       const { WAIT, DONE } = layout.frames;
-      const PERIOD = 250, fps = 10, lead = 3;
-      const live = new LiveScreen(s, { streamBlocks: 14, parkBlocks: 2, totalBlocks: layout.total, fallback: WAIT, fps, leadFrames: lead, log });
+      const PERIOD = 250,
+        fps = 10,
+        lead = 3;
+      const live = new LiveScreen(s, {
+        streamBlocks: 14,
+        parkBlocks: 2,
+        totalBlocks: layout.total,
+        fallback: WAIT,
+        fps,
+        leadFrames: lead,
+        log,
+      });
       log("1 WAIT, clearing");
       const t0 = Date.now() + 2000;
       const count = () => Math.max(0, Math.floor((Date.now() - t0) / PERIOD));
@@ -610,7 +741,8 @@ export const cases: TestCase[] = [
   {
     id: "reaction-latency-v1",
     title: "Reaction test: real delay (v1)",
-    archived: "Result 2026-10-23: no padding = median delay ~660 ms (4/4). The padded phase began after a WAIT that looked like the end, so its GOs went unclicked; then the 1-block parking stream overflowed with padding, the test crashed and the screen showed garbage, then white. Fixed: parking streams never pad; one stream, no WAIT between settings.",
+    archived:
+      "Result 2026-10-23: no padding = median delay ~660 ms (4/4). The padded phase began after a WAIT that looked like the end, so its GOs went unclicked; then the 1-block parking stream overflowed with padding, the test crashed and the screen showed garbage, then white. Fixed: parking streams never pad; one stream, no WAIT between settings.",
     description:
       "Measures the delay without counting. Watch only the keyboard: it shows GO now and then, and you click SEEN on this card each time. The computer works out the delay (assuming a typical 250 ms reaction time).",
     success:
@@ -651,7 +783,16 @@ export const cases: TestCase[] = [
 
       const results: string[] = [];
       for (const pad of [0, 1500, 3000]) {
-        const live = new LiveScreen(s, { streamBlocks: 15, parkBlocks: 1, totalBlocks: layout.total, fallback: WAIT, fps: 10, leadFrames: 3, padFrameBytes: pad, log });
+        const live = new LiveScreen(s, {
+          streamBlocks: 15,
+          parkBlocks: 1,
+          totalBlocks: layout.total,
+          fallback: WAIT,
+          fps: 10,
+          leadFrames: 3,
+          padFrameBytes: pad,
+          log,
+        });
         await live.start(bigText(""));
         log(`2 black; setting: frames padded to ${pad || "no"} bytes. 3 watch for GO`);
         const delays: number[] = [];
@@ -662,7 +803,9 @@ export const cases: TestCase[] = [
           const c = await clickAfter(sent, 4500);
           const d = c !== undefined ? c - sent - rt : undefined;
           if (d !== undefined) delays.push(d);
-          log(`  pad ${pad} trial ${k + 1}: ${d !== undefined ? `delay ~${Math.round(d)} ms (click ${Math.round(c! - sent)} ms after send)` : "missed"}`);
+          log(
+            `  pad ${pad} trial ${k + 1}: ${d !== undefined ? `delay ~${Math.round(d)} ms (click ${Math.round(c! - sent)} ms after send)` : "missed"}`,
+          );
           await sleepMs(700);
           live.push(bigText(""));
         }

@@ -99,7 +99,9 @@ export function startServer(opts: ServerOptions = {}) {
         if (url.pathname === "/ws" && srv.upgrade(req)) return undefined;
         if (url.pathname === "/" && req.method === "GET") return new Response(Bun.file(UI));
         if (url.pathname === "/frame.png") {
-          return new Response(new Uint8Array(encodePng(service.current, SCREEN_W, SCREEN_H)), { headers: { "content-type": "image/png", "cache-control": "no-store" } });
+          return new Response(new Uint8Array(encodePng(service.current, SCREEN_W, SCREEN_H)), {
+            headers: { "content-type": "image/png", "cache-control": "no-store" },
+          });
         }
         if (url.pathname === "/api/status") return json(status());
         if (url.pathname === "/api/mode" && req.method === "POST") {

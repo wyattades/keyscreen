@@ -4,7 +4,10 @@ import { encodeQgif } from "./qgif.ts";
 import { Screen } from "./qk108.ts";
 
 /** Connects, makes sure the flash layout exists, runs `fn`, and disconnects. */
-export async function withScreen<T>(log: (m: string) => void, fn: (s: Screen, layout: Layout) => Promise<T>): Promise<T> {
+export async function withScreen<T>(
+  log: (m: string) => void,
+  fn: (s: Screen, layout: Layout) => Promise<T>,
+): Promise<T> {
   const s = await Screen.connect(15000, log);
   try {
     const layout = await ensureLayout(s, log);

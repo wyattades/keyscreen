@@ -6,7 +6,17 @@
 //   bun lab/lab.ts watch        print a line for each new result reported on the dashboard
 //
 // Test cases live in lab/cases.ts. Results go to lab/results.jsonl, run logs to lab/runs/.
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, readlinkSync, statSync, watch, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  readlinkSync,
+  statSync,
+  watch,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 const LAB = import.meta.dir;
@@ -43,7 +53,12 @@ async function runCase(id: string | undefined) {
   const { withContext } = await import("./harness.ts");
   const tc = cases.find((c) => c.id === id);
   if (!tc) {
-    console.error(`unknown test "${id}". Known: ${cases.filter((c) => !c.archived).map((c) => c.id).join(", ")}`);
+    console.error(
+      `unknown test "${id}". Known: ${cases
+        .filter((c) => !c.archived)
+        .map((c) => c.id)
+        .join(", ")}`,
+    );
     process.exit(1);
   }
   if (tc.archived) {
@@ -68,7 +83,16 @@ async function listCases(json: boolean) {
   mkdirSync(PICTURES, { recursive: true });
   const out = cases.map((c) => {
     writeFileSync(join(PICTURES, `${c.id}.png`), renderSheet(c.expect()));
-    return { id: c.id, title: c.title, description: c.description, success: c.success, archived: c.archived ?? null, readOnly: !!c.readOnly, interactive: c.interactive ?? null, react: c.react ?? null };
+    return {
+      id: c.id,
+      title: c.title,
+      description: c.description,
+      success: c.success,
+      archived: c.archived ?? null,
+      readOnly: !!c.readOnly,
+      interactive: c.interactive ?? null,
+      react: c.react ?? null,
+    };
   });
   if (json) console.log(JSON.stringify(out));
   else for (const c of out) console.log(`${c.archived ? "  (archived) " : ""}${c.id.padEnd(22)} ${c.title}`);
@@ -88,11 +112,18 @@ function watchResults() {
     const end = chunk.lastIndexOf("\n");
     if (end < 0) return;
     offset += Buffer.byteLength(chunk.slice(0, end + 1));
-    for (const line of chunk.slice(0, end).split("\n").filter((l) => l.trim())) {
+    for (const line of chunk
+      .slice(0, end)
+      .split("\n")
+      .filter((l) => l.trim())) {
       try {
         const r = JSON.parse(line);
-        const note = String(r.note ?? "").replace(/\s+/g, " ").trim();
-        console.log(`REPORT ${r.id}: ${r.outcome}${note ? ` — "${note}"` : ""} (exit ${r.run?.exitCode ?? "n/a"}, log ${r.run?.logPath ?? "none"})`);
+        const note = String(r.note ?? "")
+          .replace(/\s+/g, " ")
+          .trim();
+        console.log(
+          `REPORT ${r.id}: ${r.outcome}${note ? ` — "${note}"` : ""} (exit ${r.run?.exitCode ?? "n/a"}, log ${r.run?.logPath ?? "none"})`,
+        );
       } catch {
         console.log(`REPORT (unparseable): ${line.slice(0, 200)}`);
       }
@@ -179,15 +210,29 @@ function serve(port: number) {
 
   function results(): any[] {
     if (!existsSync(RESULTS)) return [];
-    return readFileSync(RESULTS, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    return readFileSync(RESULTS, "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
   }
 
   async function startRun(id: string) {
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    const run: Run = { id, startedAt: new Date().toISOString(), lines: [], exitCode: null, logPath: `lab/runs/${ts}-${id}.log` };
+    const run: Run = {
+      id,
+      startedAt: new Date().toISOString(),
+      lines: [],
+      exitCode: null,
+      logPath: `lab/runs/${ts}-${id}.log`,
+    };
     current = run;
     lastRun.set(id, run);
-    const p = Bun.spawn(["bun", join(LAB, "lab.ts"), "run", id], { cwd: ROOT, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+    const p = Bun.spawn(["bun", join(LAB, "lab.ts"), "run", id], {
+      cwd: ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
     runPid = p.pid;
     runStdin = p.stdin;
     const pump = async (stream: ReadableStream<Uint8Array>) => {
@@ -216,7 +261,9 @@ function serve(port: number) {
       if (url.pathname === "/") return new Response(Bun.file(join(LAB, "page.html")));
       if (url.pathname.startsWith("/pictures/")) {
         const f = Bun.file(join(PICTURES, url.pathname.slice("/pictures/".length).replace(/\.\./g, "")));
-        return (await f.exists()) ? new Response(f, { headers: { "cache-control": "no-store" } }) : new Response("not found", { status: 404 });
+        return (await f.exists())
+          ? new Response(f, { headers: { "cache-control": "no-store" } })
+          : new Response("not found", { status: 404 });
       }
       if (url.pathname === "/api/state") {
         await refreshCases();
@@ -224,8 +271,23 @@ function serve(port: number) {
         const byCase: Record<string, any[]> = {};
         for (const r of results()) (byCase[r.id] ??= []).push({ ts: r.ts, outcome: r.outcome, note: r.note });
         const runs: Record<string, any> = {};
-        for (const [id, r] of lastRun) runs[id] = { startedAt: r.startedAt, exitCode: r.exitCode, lines: r.lines.slice(-200), running: current === r };
-        return Response.json({ status, cases, casesError, running: current?.id ?? null, holders: holders(), runs, results: byCase, casesVersion: casesMtime });
+        for (const [id, r] of lastRun)
+          runs[id] = {
+            startedAt: r.startedAt,
+            exitCode: r.exitCode,
+            lines: r.lines.slice(-200),
+            running: current === r,
+          };
+        return Response.json({
+          status,
+          cases,
+          casesError,
+          running: current?.id ?? null,
+          holders: holders(),
+          runs,
+          results: byCase,
+          casesVersion: casesMtime,
+        });
       }
       if (url.pathname === "/api/run" && req.method === "POST") {
         const { id } = await req.json();
@@ -233,7 +295,13 @@ function serve(port: number) {
         const c = cases.find((x) => x.id === id);
         if (!c || c.archived) return Response.json({ error: "unknown or archived test" }, { status: 400 });
         const h = holders();
-        if (h.length) return Response.json({ error: `Something else is using the keyboard: ${h.join(", ")}. Stop it (the screen server, or Hub / web tool tabs) first.` }, { status: 409 });
+        if (h.length)
+          return Response.json(
+            {
+              error: `Something else is using the keyboard: ${h.join(", ")}. Stop it (the screen server, or Hub / web tool tabs) first.`,
+            },
+            { status: 409 },
+          );
         void startRun(id);
         return Response.json({ ok: true });
       }
@@ -251,14 +319,19 @@ function serve(port: number) {
         const { id, outcome, note } = await req.json();
         const c = cases.find((x) => x.id === id);
         const r = lastRun.get(id);
-        appendFileSync(RESULTS, JSON.stringify({
-          ts: new Date().toISOString(),
-          id,
-          title: c?.title,
-          outcome,
-          note: String(note ?? "").trim(),
-          run: r ? { startedAt: r.startedAt, exitCode: r.exitCode, logPath: r.logPath, tail: r.lines.slice(-12) } : null,
-        }) + "\n");
+        appendFileSync(
+          RESULTS,
+          JSON.stringify({
+            ts: new Date().toISOString(),
+            id,
+            title: c?.title,
+            outcome,
+            note: String(note ?? "").trim(),
+            run: r
+              ? { startedAt: r.startedAt, exitCode: r.exitCode, logPath: r.logPath, tail: r.lines.slice(-12) }
+              : null,
+          }) + "\n",
+        );
         return Response.json({ ok: true });
       }
       return new Response("not found", { status: 404 });

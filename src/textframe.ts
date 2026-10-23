@@ -2,7 +2,9 @@
 // The font is uppercase letters, digits and a little punctuation (see font.ts).
 import { GLYPH_H, drawText, textWidth } from "./font.ts";
 
-const W = 240, H = 136, MARGIN = 8;
+const W = 240,
+  H = 136,
+  MARGIN = 8;
 
 export interface TextOptions {
   color?: number[];
@@ -56,7 +58,14 @@ export function bigText(text: string): Uint8Array {
   for (let i = 0; i < W * H; i++) rgba[i * 4 + 3] = 255;
   let scale = 14;
   while (scale > 2 && (textWidth(text, scale) > W - 16 || GLYPH_H * scale > H - 16)) scale--;
-  drawText(rgba, W, text, Math.round((W - textWidth(text, scale)) / 2), Math.round((H - GLYPH_H * scale) / 2), scale, [255, 255, 255]);
+  drawText(
+    rgba,
+    W,
+    text,
+    Math.round((W - textWidth(text, scale)) / 2),
+    Math.round((H - GLYPH_H * scale) / 2),
+    scale,
+    [255, 255, 255],
+  );
   return rgba;
 }
-

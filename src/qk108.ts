@@ -64,7 +64,10 @@ export function timeDigits(t = new Date()): number[] {
   const two = (n: number) => [Math.floor(n / 10) % 10, n % 10];
   const y = t.getFullYear();
   return [
-    Math.floor(y / 1000) % 10, Math.floor(y / 100) % 10, Math.floor(y / 10) % 10, y % 10,
+    Math.floor(y / 1000) % 10,
+    Math.floor(y / 100) % 10,
+    Math.floor(y / 10) % 10,
+    y % 10,
     ...two(t.getMonth() + 1),
     t.getDay(),
     ...two(t.getDate()),
@@ -211,7 +214,8 @@ export class Screen {
     // `slots`: how many table entries to create (the first images). Extra images are stored but
     // only reachable by re-pointing a slot with switchTable(). The table holds at most 10 entries.
     const slotCount = opts.slots ?? gifs.length;
-    if (!gifs.length || slotCount < 1 || slotCount > 10 || slotCount > gifs.length) throw new Error("need 1-10 visible slots and at least that many images");
+    if (!gifs.length || slotCount < 1 || slotCount > 10 || slotCount > gifs.length)
+      throw new Error("need 1-10 visible slots and at least that many images");
     const leading = opts.leadingBlocks ?? 0;
     const starts: number[] = [];
     let blocks = leading;
@@ -253,7 +257,8 @@ export class Screen {
 
     let sent = 0;
     for (let i = 0; i < gifs.length; i++) {
-      const g = gifs[i], base = starts[i] * 65536;
+      const g = gifs[i],
+        base = starts[i] * 65536;
       for (let off = 0; off < g.length; off += 56) {
         const chunk = g.subarray(off, off + 56);
         await this.send(packet(Cmd.GifWrite, chunk, chunk.length, base + off));
@@ -269,7 +274,15 @@ export class Screen {
     await this.syncTime();
     await this.send(packet(Cmd.End));
     lap("finish");
-    return { blocks: allocated, firstSpare: blocks, leadingBlocks: leading, bytes: total, packets: Math.ceil(total / 56), ms, entries };
+    return {
+      blocks: allocated,
+      firstSpare: blocks,
+      leadingBlocks: leading,
+      bytes: total,
+      packets: Math.ceil(total / 56),
+      ms,
+      entries,
+    };
   }
 
   /** Slot table: 00 count totalBlocks, then per slot: startBlock 00 lenL lenM lenH. Sent as 3 pages + commit. */
@@ -339,7 +352,8 @@ export class Screen {
     // Pipelined: keep up to `window` FLASH_WRITE packets in flight, then match replies in order.
     const offsets: number[] = [];
     for (let off = 0; off < data.length; off += 56) offsets.push(off);
-    let sent = 0, acked = 0;
+    let sent = 0,
+      acked = 0;
     while (acked < offsets.length) {
       while (sent < offsets.length && sent - acked < window) {
         const off = offsets[sent++];
@@ -350,7 +364,9 @@ export class Screen {
       try {
         r = await this.dev.readUntil((r) => r[0] === 0xaa && r[1] === Cmd.GifWrite, 1000);
       } catch (e) {
-        throw new Error(`pipelined write (window ${window}) at packet ${acked}/${offsets.length}: ${(e as Error).message}`);
+        throw new Error(
+          `pipelined write (window ${window}) at packet ${acked}/${offsets.length}: ${(e as Error).message}`,
+        );
       }
       if (r[7] === 0x0f) throw new Error(`screen rejected pipelined write at packet ${acked}`);
       acked++;

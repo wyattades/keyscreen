@@ -9,8 +9,8 @@ import { Screen } from "./qk108.ts";
 import { renderText, type TextOptions } from "./textframe.ts";
 import { fakeLayout, fakeScreen } from "./fake-screen.ts";
 
-
-export const SCREEN_W = 240, SCREEN_H = 136;
+export const SCREEN_W = 240,
+  SCREEN_H = 136;
 
 export type ServiceState = "starting" | "setting up" | "running" | "reconnecting" | "stopped";
 
@@ -44,7 +44,8 @@ export class ScreenService {
       for (let i = SCREEN_W * 135; i < SCREEN_W * SCREEN_H; i++) padded[i * 4 + 3] = 255;
       rgba = padded;
     }
-    if (rgba.length !== SCREEN_W * SCREEN_H * 4) throw new Error(`expected ${SCREEN_W}x${SCREEN_H} RGBA (${SCREEN_W * SCREEN_H * 4} bytes), got ${rgba.length}`);
+    if (rgba.length !== SCREEN_W * SCREEN_H * 4)
+      throw new Error(`expected ${SCREEN_W}x${SCREEN_H} RGBA (${SCREEN_W * SCREEN_H * 4} bytes), got ${rgba.length}`);
     this.current = rgba;
     this.updatedAt = Date.now();
     this.live?.push(rgba);

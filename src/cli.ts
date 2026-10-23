@@ -46,7 +46,8 @@ const flag = (name: string) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const positional = () => args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && args[i - 1] !== "--force"));
+const positional = () =>
+  args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && args[i - 1] !== "--force"));
 
 async function serverUp(): Promise<boolean> {
   try {
@@ -69,7 +70,10 @@ async function call(path: string, init?: RequestInit): Promise<any> {
 }
 
 const post = (path: string, body: unknown) =>
-  call(path, { method: "POST", body: (typeof body === "string" || body instanceof Uint8Array ? body : JSON.stringify(body)) as BodyInit });
+  call(path, {
+    method: "POST",
+    body: (typeof body === "string" || body instanceof Uint8Array ? body : JSON.stringify(body)) as BodyInit,
+  });
 
 function fail(msg: string): never {
   console.error(`qk108: ${msg}`);
@@ -77,7 +81,8 @@ function fail(msg: string): never {
 }
 
 async function requireNoServer() {
-  if (await serverUp()) fail("the screen server is running and owns the screen. Stop it first (Ctrl-C in its terminal).");
+  if (await serverUp())
+    fail("the screen server is running and owns the screen. Stop it first (Ctrl-C in its terminal).");
 }
 
 function loadImage(path: string): Uint8Array {
@@ -101,7 +106,9 @@ switch (cmd) {
   }
   case "status": {
     const s = await call("/api/status");
-    console.log(`${s.state}${s.fake ? " (simulated screen)" : ""}, mode: ${s.mode}${s.lastError ? `, last error: ${s.lastError}` : ""}`);
+    console.log(
+      `${s.state}${s.fake ? " (simulated screen)" : ""}, mode: ${s.mode}${s.lastError ? `, last error: ${s.lastError}` : ""}`,
+    );
     if (s.note) console.log(s.note);
     if (s.stats) console.log(`frames sent: ${s.stats.contentFrames}, flash recycles: ${s.stats.rotations}`);
     break;
@@ -129,7 +136,8 @@ switch (cmd) {
     }
     const [a, b] = positional();
     const pt = (p?: string) => (p ?? "").split(",").map(Number);
-    const [x0, y0] = pt(a), [x1, y1] = pt(b ?? a);
+    const [x0, y0] = pt(a),
+      [x1, y1] = pt(b ?? a);
     if ([x0, y0, x1, y1].some(Number.isNaN)) fail("usage: qk108 draw <x0,y0> <x1,y1> [--color R,G,B] [--size N]");
     const color = (flag("--color") ?? "255,255,255").split(",").map(Number);
     await post("/api/mode", { id: "draw" });

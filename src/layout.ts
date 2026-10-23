@@ -41,7 +41,9 @@ export async function ensureLayout(s: Screen, log: (m: string) => void = () => {
     if (t[9] === 1 && t[10] === saved.total) return saved;
     log("the screen's flash doesn't match the saved layout; setting it up again");
   }
-  log(`setting up flash: ${MANAGED_BLOCKS} free blocks + ${PERMANENT_FRAMES.join(", ")} (the screen shows Downloading)…`);
+  log(
+    `setting up flash: ${MANAGED_BLOCKS} free blocks + ${PERMANENT_FRAMES.join(", ")} (the screen shows Downloading)…`,
+  );
   const up = await s.uploadGifs(PERMANENT_FRAMES.map(frameFor), { slots: 1, leadingBlocks: MANAGED_BLOCKS });
   const layout: Layout = {
     total: up.blocks,

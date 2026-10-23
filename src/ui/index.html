@@ -1,209 +1,492 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Keyboard Screen</title>
-<style>
-  :root {
-    --bg: #f3f4f7; --card: #fff; --text: #1c2027; --muted: #626a75; --line: #dcdfe5;
-    --accent: #e8891b; --accent-ink: #fff; --ok: #1f8a4c; --bad: #c63b3b; --warn-bg: #fff4d6; --warn: #7a5600;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #101215; --card: #191c21; --text: #e7e9ec; --muted: #9aa1ab; --line: #2a2f37;
-      --accent: #ffa53d; --accent-ink: #1a1206; --ok: #4cc27f; --bad: #ff7676; --warn-bg: #3a2e10; --warn: #ffd27a;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, sans-serif; }
-  main { max-width: 1060px; margin: 0 auto; padding: 18px 16px 48px; }
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-  h1 { font-size: 20px; margin: 0; }
-  .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
-  .chip.ok { color: var(--ok); border-color: var(--ok); }
-  .chip.bad { color: var(--bad); border-color: var(--bad); }
-  .grid { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); gap: 16px; }
-  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
-  .screen { display: block; width: 100%; aspect-ratio: 240 / 136; image-rendering: pixelated; background: #000; border-radius: 6px; }
-  .stats { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 1.4em; }
-  .modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-  .mode { text-align: left; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 10px; cursor: pointer; }
-  .mode b { display: block; font-size: 14px; }
-  .mode span { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .mode.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
-  .panel { margin-top: 16px; }
-  .banner { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; margin: 10px 0 0; font-size: 14px; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
-  button.act { font: inherit; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
-  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
-  #pad { display: block; width: 100%; max-width: 720px; aspect-ratio: 240 / 136; background: #000; border-radius: 8px; touch-action: none; cursor: crosshair; image-rendering: pixelated; }
-  .swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; }
-  .swatch.on { border-color: var(--text); }
-  textarea, input[type=text] { width: 100%; font: inherit; padding: 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
-  textarea { min-height: 70px; }
-  .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 26px; text-align: center; color: var(--muted); }
-  .drop.over { border-color: var(--accent); color: var(--text); }
-  .typebox { font: 600 18px ui-monospace, monospace; }
-  .log { font: 12px/1.5 ui-monospace, monospace; color: var(--muted); white-space: pre-wrap; margin-top: 16px; max-height: 140px; overflow: auto; }
-  .muted { color: var(--muted); font-size: 13px; }
-</style>
-</head>
-<body>
-<main>
-  <header>
-    <h1>Keyboard screen</h1>
-    <span class="chip" id="state">connecting…</span>
-  </header>
-  <div class="grid">
-    <section class="card">
-      <h2>On the keyboard</h2>
-      <img class="screen" id="preview" alt="What the keyboard screen is showing">
-      <div class="stats" id="stats"></div>
-    </section>
-    <section class="card">
-      <h2>Mode</h2>
-      <div class="modes" id="modes"></div>
-      <div class="banner" id="note" hidden></div>
-    </section>
-  </div>
-  <section class="card panel" id="panel"></section>
-  <div class="log" id="log"></div>
-</main>
-<script>
-const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-let status = null, ws = null, builtModes = "", panelFor = "";
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Keyboard Screen</title>
+    <style>
+      :root {
+        --bg: #f3f4f7;
+        --card: #fff;
+        --text: #1c2027;
+        --muted: #626a75;
+        --line: #dcdfe5;
+        --accent: #e8891b;
+        --accent-ink: #fff;
+        --ok: #1f8a4c;
+        --bad: #c63b3b;
+        --warn-bg: #fff4d6;
+        --warn: #7a5600;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #101215;
+          --card: #191c21;
+          --text: #e7e9ec;
+          --muted: #9aa1ab;
+          --line: #2a2f37;
+          --accent: #ffa53d;
+          --accent-ink: #1a1206;
+          --ok: #4cc27f;
+          --bad: #ff7676;
+          --warn-bg: #3a2e10;
+          --warn: #ffd27a;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.45 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1060px;
+        margin: 0 auto;
+        padding: 18px 16px 48px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0;
+      }
+      .chip {
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 99px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+      }
+      .chip.ok {
+        color: var(--ok);
+        border-color: var(--ok);
+      }
+      .chip.bad {
+        color: var(--bad);
+        border-color: var(--bad);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 500px) minmax(0, 1fr);
+        gap: 16px;
+      }
+      @media (max-width: 860px) {
+        .grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+      }
+      .card h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin: 0 0 10px;
+      }
+      .screen {
+        display: block;
+        width: 100%;
+        aspect-ratio: 240 / 136;
+        image-rendering: pixelated;
+        background: #000;
+        border-radius: 6px;
+      }
+      .stats {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 8px;
+        min-height: 1.4em;
+      }
+      .modes {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+      }
+      .mode {
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 10px;
+        cursor: pointer;
+      }
+      .mode b {
+        display: block;
+        font-size: 14px;
+      }
+      .mode span {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .mode.on {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent) inset;
+      }
+      .panel {
+        margin-top: 16px;
+      }
+      .banner {
+        background: var(--warn-bg);
+        color: var(--warn);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin: 10px 0 0;
+        font-size: 14px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      button.act {
+        font: inherit;
+        padding: 7px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--text);
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        color: var(--accent-ink);
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      #pad {
+        display: block;
+        width: 100%;
+        max-width: 720px;
+        aspect-ratio: 240 / 136;
+        background: #000;
+        border-radius: 8px;
+        touch-action: none;
+        cursor: crosshair;
+        image-rendering: pixelated;
+      }
+      .swatch {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 2px solid var(--line);
+        cursor: pointer;
+      }
+      .swatch.on {
+        border-color: var(--text);
+      }
+      textarea,
+      input[type="text"] {
+        width: 100%;
+        font: inherit;
+        padding: 9px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--text);
+      }
+      textarea {
+        min-height: 70px;
+      }
+      .drop {
+        border: 2px dashed var(--line);
+        border-radius: 10px;
+        padding: 26px;
+        text-align: center;
+        color: var(--muted);
+      }
+      .drop.over {
+        border-color: var(--accent);
+        color: var(--text);
+      }
+      .typebox {
+        font:
+          600 18px ui-monospace,
+          monospace;
+      }
+      .log {
+        font:
+          12px/1.5 ui-monospace,
+          monospace;
+        color: var(--muted);
+        white-space: pre-wrap;
+        margin-top: 16px;
+        max-height: 140px;
+        overflow: auto;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Keyboard screen</h1>
+        <span class="chip" id="state">connecting…</span>
+      </header>
+      <div class="grid">
+        <section class="card">
+          <h2>On the keyboard</h2>
+          <img class="screen" id="preview" alt="What the keyboard screen is showing" />
+          <div class="stats" id="stats"></div>
+        </section>
+        <section class="card">
+          <h2>Mode</h2>
+          <div class="modes" id="modes"></div>
+          <div class="banner" id="note" hidden></div>
+        </section>
+      </div>
+      <section class="card panel" id="panel"></section>
+      <div class="log" id="log"></div>
+    </main>
+    <script>
+      const $ = (s) => document.querySelector(s);
+      const esc = (s) =>
+        String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      let status = null,
+        ws = null,
+        builtModes = "",
+        panelFor = "";
 
-// ---- connection ----
-function connect() {
-  ws = new WebSocket(`ws://${location.host}/ws`);
-  ws.onclose = () => setTimeout(connect, 1000);
-  ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.error) console.warn(m.error); } catch {} };
-}
-connect();
-const send = (msg) => { if (ws?.readyState === 1) ws.send(JSON.stringify(msg)); };
+      // ---- connection ----
+      function connect() {
+        ws = new WebSocket(`ws://${location.host}/ws`);
+        ws.onclose = () => setTimeout(connect, 1000);
+        ws.onmessage = (e) => {
+          try {
+            const m = JSON.parse(e.data);
+            if (m.error) console.warn(m.error);
+          } catch {}
+        };
+      }
+      connect();
+      const send = (msg) => {
+        if (ws?.readyState === 1) ws.send(JSON.stringify(msg));
+      };
 
-// ---- live preview ----
-function refreshPreview() {
-  const img = new Image();
-  img.onload = () => { $("#preview").src = img.src; setTimeout(refreshPreview, 250); };
-  img.onerror = () => setTimeout(refreshPreview, 1000);
-  img.src = `/frame.png?t=${Date.now()}`;
-}
-refreshPreview();
+      // ---- live preview ----
+      function refreshPreview() {
+        const img = new Image();
+        img.onload = () => {
+          $("#preview").src = img.src;
+          setTimeout(refreshPreview, 250);
+        };
+        img.onerror = () => setTimeout(refreshPreview, 1000);
+        img.src = `/frame.png?t=${Date.now()}`;
+      }
+      refreshPreview();
 
-// ---- status + mode list ----
-async function poll() {
-  try {
-    status = await fetch("/api/status").then((r) => r.json());
-  } catch {
-    $("#state").textContent = "server not reachable";
-    $("#state").className = "chip bad";
-    return;
-  }
-  const s = status.state;
-  $("#state").textContent = s === "running" ? "live" : s + (status.lastError ? ` — ${status.lastError}` : "");
-  $("#state").className = "chip " + (s === "running" ? "ok" : s === "reconnecting" ? "bad" : "");
-  const st = status.stats;
-  $("#stats").textContent = st ? `${st.contentFrames} frames sent · ${st.rotations} flash recycles · preview is what was sent; the keyboard shows it ~0.4 s later` : "";
-  const sig = status.modes.map((m) => m.id).join(",");
-  if (sig !== builtModes) {
-    builtModes = sig;
-    $("#modes").innerHTML = status.modes.map((m) => `<button class="mode" data-id="${m.id}"><b>${esc(m.name)}</b><span>${esc(m.blurb)}</span></button>`).join("");
-    for (const b of document.querySelectorAll(".mode")) b.onclick = () => { send({ type: "mode", id: b.dataset.id }); status.mode = b.dataset.id; renderPanel(); };
-  }
-  for (const b of document.querySelectorAll(".mode")) b.classList.toggle("on", b.dataset.id === status.mode);
-  $("#note").hidden = !status.note;
-  $("#note").textContent = status.note;
-  $("#log").textContent = (status.log || []).join("\n");
-  renderPanel();
-}
-poll();
-setInterval(poll, 1000);
+      // ---- status + mode list ----
+      async function poll() {
+        try {
+          status = await fetch("/api/status").then((r) => r.json());
+        } catch {
+          $("#state").textContent = "server not reachable";
+          $("#state").className = "chip bad";
+          return;
+        }
+        const s = status.state;
+        $("#state").textContent = s === "running" ? "live" : s + (status.lastError ? ` — ${status.lastError}` : "");
+        $("#state").className = "chip " + (s === "running" ? "ok" : s === "reconnecting" ? "bad" : "");
+        const st = status.stats;
+        $("#stats").textContent = st
+          ? `${st.contentFrames} frames sent · ${st.rotations} flash recycles · preview is what was sent; the keyboard shows it ~0.4 s later`
+          : "";
+        const sig = status.modes.map((m) => m.id).join(",");
+        if (sig !== builtModes) {
+          builtModes = sig;
+          $("#modes").innerHTML = status.modes
+            .map(
+              (m) =>
+                `<button class="mode" data-id="${m.id}"><b>${esc(m.name)}</b><span>${esc(m.blurb)}</span></button>`,
+            )
+            .join("");
+          for (const b of document.querySelectorAll(".mode"))
+            b.onclick = () => {
+              send({ type: "mode", id: b.dataset.id });
+              status.mode = b.dataset.id;
+              renderPanel();
+            };
+        }
+        for (const b of document.querySelectorAll(".mode")) b.classList.toggle("on", b.dataset.id === status.mode);
+        $("#note").hidden = !status.note;
+        $("#note").textContent = status.note;
+        $("#log").textContent = (status.log || []).join("\n");
+        renderPanel();
+      }
+      poll();
+      setInterval(poll, 1000);
 
-// ---- per-mode panels ----
-function renderPanel() {
-  const id = status?.mode;
-  if (!id || id === panelFor) return;
-  panelFor = id;
-  const m = status.modes.find((x) => x.id === id);
-  const p = $("#panel");
-  p.innerHTML = `<h2>${esc(m.name)}</h2><div class="muted">${esc(m.blurb)}</div>`;
-  ({ draw: drawPanel, ticker: tickerPanel, message: messagePanel, image: imagePanel, life: lifePanel })[id]?.(p);
-}
+      // ---- per-mode panels ----
+      function renderPanel() {
+        const id = status?.mode;
+        if (!id || id === panelFor) return;
+        panelFor = id;
+        const m = status.modes.find((x) => x.id === id);
+        const p = $("#panel");
+        p.innerHTML = `<h2>${esc(m.name)}</h2><div class="muted">${esc(m.blurb)}</div>`;
+        ({ draw: drawPanel, ticker: tickerPanel, message: messagePanel, image: imagePanel, life: lifePanel })[id]?.(p);
+      }
 
-function drawPanel(p) {
-  const colors = [[255,255,255],[255,70,70],[255,160,40],[255,230,60],[70,220,110],[60,220,230],[80,130,255],[230,90,255]];
-  p.insertAdjacentHTML("beforeend", `
+      function drawPanel(p) {
+        const colors = [
+          [255, 255, 255],
+          [255, 70, 70],
+          [255, 160, 40],
+          [255, 230, 60],
+          [70, 220, 110],
+          [60, 220, 230],
+          [80, 130, 255],
+          [230, 90, 255],
+        ];
+        p.insertAdjacentHTML(
+          "beforeend",
+          `
     <canvas id="pad" width="240" height="136"></canvas>
     <div class="row" id="swatches">${colors.map((c, i) => `<span class="swatch${i ? "" : " on"}" data-i="${i}" style="background:rgb(${c})"></span>`).join("")}
       <span class="muted">Size</span><input type="range" id="size" min="1" max="8" value="2">
-      <button class="act" id="clear">Clear</button></div>`);
-  const cv = $("#pad"), g = cv.getContext("2d");
-  g.fillStyle = "#000"; g.fillRect(0, 0, 240, 136);
-  let color = colors[0], last = null, segs = [];
-  for (const s of p.querySelectorAll(".swatch")) s.onclick = () => {
-    color = colors[s.dataset.i];
-    for (const o of p.querySelectorAll(".swatch")) o.classList.toggle("on", o === s);
-  };
-  const at = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 240, (e.clientY - r.top) / r.height * 136]; };
-  const stroke = (a, b) => {
-    const size = Number($("#size").value);
-    g.strokeStyle = `rgb(${color})`; g.lineWidth = size * 2 + 1; g.lineCap = "round";
-    g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
-    segs.push([...a, ...b].map(Math.round));
-  };
-  cv.onpointerdown = (e) => { cv.setPointerCapture(e.pointerId); last = at(e); stroke(last, last); };
-  cv.onpointermove = (e) => { if (!last) return; const p2 = at(e); stroke(last, p2); last = p2; };
-  cv.onpointerup = cv.onpointercancel = () => (last = null);
-  const flush = setInterval(() => {
-    if (panelFor !== "draw") return clearInterval(flush);
-    if (segs.length) { send({ type: "draw", segs, color, size: Number($("#size").value) }); segs = []; }
-  }, 30);
-  $("#clear").onclick = () => { g.fillStyle = "#000"; g.fillRect(0, 0, 240, 136); send({ type: "clear" }); };
-}
+      <button class="act" id="clear">Clear</button></div>`,
+        );
+        const cv = $("#pad"),
+          g = cv.getContext("2d");
+        g.fillStyle = "#000";
+        g.fillRect(0, 0, 240, 136);
+        let color = colors[0],
+          last = null,
+          segs = [];
+        for (const s of p.querySelectorAll(".swatch"))
+          s.onclick = () => {
+            color = colors[s.dataset.i];
+            for (const o of p.querySelectorAll(".swatch")) o.classList.toggle("on", o === s);
+          };
+        const at = (e) => {
+          const r = cv.getBoundingClientRect();
+          return [((e.clientX - r.left) / r.width) * 240, ((e.clientY - r.top) / r.height) * 136];
+        };
+        const stroke = (a, b) => {
+          const size = Number($("#size").value);
+          g.strokeStyle = `rgb(${color})`;
+          g.lineWidth = size * 2 + 1;
+          g.lineCap = "round";
+          g.beginPath();
+          g.moveTo(a[0], a[1]);
+          g.lineTo(b[0], b[1]);
+          g.stroke();
+          segs.push([...a, ...b].map(Math.round));
+        };
+        cv.onpointerdown = (e) => {
+          cv.setPointerCapture(e.pointerId);
+          last = at(e);
+          stroke(last, last);
+        };
+        cv.onpointermove = (e) => {
+          if (!last) return;
+          const p2 = at(e);
+          stroke(last, p2);
+          last = p2;
+        };
+        cv.onpointerup = cv.onpointercancel = () => (last = null);
+        const flush = setInterval(() => {
+          if (panelFor !== "draw") return clearInterval(flush);
+          if (segs.length) {
+            send({ type: "draw", segs, color, size: Number($("#size").value) });
+            segs = [];
+          }
+        }, 30);
+        $("#clear").onclick = () => {
+          g.fillStyle = "#000";
+          g.fillRect(0, 0, 240, 136);
+          send({ type: "clear" });
+        };
+      }
 
-function tickerPanel(p) {
-  p.insertAdjacentHTML("beforeend", `
-    <div class="row"><input type="text" class="typebox" id="typebox" placeholder="Type here (only needed when the keyboard can't be read directly)"></div>`);
-  const box = $("#typebox");
-  box.onkeydown = (e) => {
-    if (status?.keySource !== "page") return; // the server already reads the keyboard; avoid doubles
-    if (e.key === "Backspace") send({ type: "key", key: "\b" });
-    else if (e.key === "Enter") send({ type: "key", key: "\n" });
-    else if (e.key.length === 1) send({ type: "key", key: e.key.toUpperCase() });
-  };
-  box.focus();
-}
+      function tickerPanel(p) {
+        p.insertAdjacentHTML(
+          "beforeend",
+          `
+    <div class="row"><input type="text" class="typebox" id="typebox" placeholder="Type here (only needed when the keyboard can't be read directly)"></div>`,
+        );
+        const box = $("#typebox");
+        box.onkeydown = (e) => {
+          if (status?.keySource !== "page") return; // the server already reads the keyboard; avoid doubles
+          if (e.key === "Backspace") send({ type: "key", key: "\b" });
+          else if (e.key === "Enter") send({ type: "key", key: "\n" });
+          else if (e.key.length === 1) send({ type: "key", key: e.key.toUpperCase() });
+        };
+        box.focus();
+      }
 
-function messagePanel(p) {
-  p.insertAdjacentHTML("beforeend", `
+      function messagePanel(p) {
+        p.insertAdjacentHTML(
+          "beforeend",
+          `
     <div class="row"><textarea id="msg" placeholder="Type a message…"></textarea></div>
-    <div class="row"><button class="act primary" id="show">Show</button><span class="muted">Enter shows it; Shift+Enter for a new line.</span></div>`);
-  const show = () => send({ type: "text", text: $("#msg").value });
-  $("#show").onclick = show;
-  $("#msg").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); show(); } };
-  $("#msg").focus();
-}
+    <div class="row"><button class="act primary" id="show">Show</button><span class="muted">Enter shows it; Shift+Enter for a new line.</span></div>`,
+        );
+        const show = () => send({ type: "text", text: $("#msg").value });
+        $("#show").onclick = show;
+        $("#msg").onkeydown = (e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            show();
+          }
+        };
+        $("#msg").focus();
+      }
 
-function imagePanel(p) {
-  p.insertAdjacentHTML("beforeend", `
-    <div class="row"><label class="drop" id="drop" style="flex:1">Drop a PNG here, or click to choose one<input type="file" id="file" accept="image/png" hidden></label></div>`);
-  const upload = async (file) => { if (file) await fetch("/image", { method: "POST", body: await file.arrayBuffer() }); };
-  $("#file").onchange = (e) => upload(e.target.files[0]);
-  const drop = $("#drop");
-  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
-  drop.ondragleave = () => drop.classList.remove("over");
-  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files[0]); };
-}
+      function imagePanel(p) {
+        p.insertAdjacentHTML(
+          "beforeend",
+          `
+    <div class="row"><label class="drop" id="drop" style="flex:1">Drop a PNG here, or click to choose one<input type="file" id="file" accept="image/png" hidden></label></div>`,
+        );
+        const upload = async (file) => {
+          if (file) await fetch("/image", { method: "POST", body: await file.arrayBuffer() });
+        };
+        $("#file").onchange = (e) => upload(e.target.files[0]);
+        const drop = $("#drop");
+        drop.ondragover = (e) => {
+          e.preventDefault();
+          drop.classList.add("over");
+        };
+        drop.ondragleave = () => drop.classList.remove("over");
+        drop.ondrop = (e) => {
+          e.preventDefault();
+          drop.classList.remove("over");
+          upload(e.dataTransfer.files[0]);
+        };
+      }
 
-function lifePanel(p) {
-  p.insertAdjacentHTML("beforeend", `<div class="row"><button class="act" id="reseed">New random start</button></div>`);
-  $("#reseed").onclick = () => send({ type: "reseed" });
-}
-</script>
-</body>
+      function lifePanel(p) {
+        p.insertAdjacentHTML(
+          "beforeend",
+          `<div class="row"><button class="act" id="reseed">New random start</button></div>`,
+        );
+        $("#reseed").onclick = () => send({ type: "reseed" });
+      }
+    </script>
+  </body>
 </html>

@@ -7,6 +7,7 @@ Legend: **[verified]** = seen on this keyboard, **[web tool]** = read in the off
 **[RT82]** = from RT82 projects only, **[Hub JS]** = read in Epomaker Hub, **[source]** = Epomaker QMK source.
 
 ## Devices
+
 - Keyboard `36b0:30af` "RDMCTMZT Epomaker QK108" **[verified]**
   - if0 boot keyboard, if1 vendor page `0xFF60`/usage `0x61` (32-byte reports, VIA raw HID), if2 mouse/consumer/NKRO
 - Screen controller `1919:1919` "RDR Epomaker QK108", behind the keyboard's internal hub (`1a40:0101`) **[verified]**
@@ -18,45 +19,53 @@ Legend: **[verified]** = seen on this keyboard, **[web tool]** = read in the off
   - Screen is 240x135, rotate 0 (from the `AA 12` reply) **[verified]**
 
 ## Keyboard commands (32 bytes, to `36b0:30af` if1) **[web tool]**
-| Bytes | Meaning |
-|---|---|
-| `AA E2 00…` | get screen mode. Reply byte **8** == 1 → on. This keyboard already reports 1 **[verified]** |
-| `AA E0 00…` | open screen mode. Web tool repeats every 400 ms until the LCD connects. Echoed back; no visible effect here **[verified]** |
-| `AA E3 00 00 00 01 00 00 n` | announce n GIFs before upload |
+
+| Bytes                       | Meaning                                                                                                                    |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `AA E2 00…`                 | get screen mode. Reply byte **8** == 1 → on. This keyboard already reports 1 **[verified]**                                |
+| `AA E0 00…`                 | open screen mode. Web tool repeats every 400 ms until the LCD connects. Echoed back; no visible effect here **[verified]** |
+| `AA E3 00 00 00 01 00 00 n` | announce n GIFs before upload                                                                                              |
 
 ## LCD packets (64 bytes, to `1919:1919` if1) **[web tool]**
+
 Layout: `AA cmd addrL addrM addrH len 00 00 payload[56]`. Each command gets a reply that echoes `AA cmd`.
 Reply byte 7 == `0x0F` means rejected.
 
-| Cmd | Meaning |
-|---|---|
-| `10` | begin |
-| `11` | end / exit |
-| `12` | screen info: `AA 12 00 00 00 38`. Reply: width u16LE @20, height @22, rotate @26 (default 240x136) |
-| `17` | set time (see below) |
-| `1B 14 15 16 18 19 1A` | GIF upload: start, read table, write table, commit, erase 64 KiB blocks, write, end |
-| `1C` | connection type + keepalive. Reply byte **9**: 0 BT, 1 2.4G, 2 USB **[verified]** |
-| `1D` / `1E` | static image erase / write: big-endian RGB565 with a 4-byte zero prefix |
+| Cmd                    | Meaning                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `10`                   | begin                                                                                              |
+| `11`                   | end / exit                                                                                         |
+| `12`                   | screen info: `AA 12 00 00 00 38`. Reply: width u16LE @20, height @22, rotate @26 (default 240x136) |
+| `17`                   | set time (see below)                                                                               |
+| `1B 14 15 16 18 19 1A` | GIF upload: start, read table, write table, commit, erase 64 KiB blocks, write, end                |
+| `1C`                   | connection type + keepalive. Reply byte **9**: 0 BT, 1 2.4G, 2 USB **[verified]**                  |
+| `1D` / `1E`            | static image erase / write: big-endian RGB565 with a 4-byte zero prefix                            |
 
 ### Time sync **[verified: our own sync works]**
+
 Send `AA 10`, then this packet, then `AA 11`:
+
 ```
 AA 17 00 00 00 38 00 00  Y Y Y Y  M M  DOW  D D  h h  m m  s s
 ```
+
 One decimal digit per byte. DOW counts Sunday as 0 (JS `getDay()`).
 Captured from the web tool on this keyboard **[verified]**:
 `aa 17 00 00 00 38 00 00 02 00 02 06 01 00 03 02 01 02 03 00 05 05 03` = 2026-10, Wed(3), 21, 23:05:53.
 Replies echo the request (same 64 bytes).
 
 ### Captured `AA 12` reply **[verified]**
+
 `aa 12 00 00 00 38 00 00 aa bb 19 19 19 19 00 01 01 01 00 02 f0 00 87 00 9e 03 00`
 → width 0x00f0 = 240, height 0x0087 = 135, imageSize 0x9e, maxScreen 3, rotate 0
 
 ### Images **[web tool + RT82]**
+
 GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are written to flash in
 64 KiB blocks. No live-framebuffer / streaming command has been found.
 
 ## From reading the web tool JS (second pass)
+
 - Every command the tool can send to the LCD: `10 11 12 14 15 16 17 18 19 1A 1B 1C 1D 1E`. There is no
   live-draw or framebuffer command. Every image path erases and writes flash in 64 KiB blocks (500 ms
   per erased block) **[web tool]**.
@@ -69,6 +78,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
 - Keyboard-side extra: `00 30 …` (33-byte) = device info: firmware version, battery, connect status **[web tool]**.
 
 ## Still images vs GIFs on the QK108 (tested 2026-10-21)
+
 - `1D`/`1E` still-image upload is **rejected** on the QK108: the `1D` reply has byte 7 = `0x0F` **[verified]**.
   The web tool only uses image slots for the 8-screen model `36b0:30ee` (device-profiles.json). The QK108 gets the
   default profile, where every slot is a GIF, so a PNG/JPEG is sent as a one-frame QGIF through the GIF path
@@ -84,6 +94,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   erases a 64 KiB flash block **[estimated]**.
 
 ## Live indicators (tested 2026-10-21)
+
 - The screen's Caps/Num Lock icons update instantly on key presses, and **no USB traffic** shows up on either
   vendor channel while they do (12 Caps + 2 Num toggles monitored with `src/monitor.ts`) **[verified]**. The
   keyboard chip tells the screen chip over an internal link.
@@ -99,6 +110,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
 - Icons: Caps and Num **[verified]**. Scroll, Compose, Kana **[assumed]** (not watched during the test).
 
 ## Official source and live-drawing research (2026-10-21)
+
 - Epomaker publishes QMK source for this keyboard: github.com/Epomaker/qk108 (one commit, 3817b9a8). The
   keyboard MCU is an Eastsoft ES32 FS026 with a custom bootloader **[source]**.
 - All screen/UART logic is in a prebuilt `lib/rdr_lib/librdrcommon.a` that is not in the repo. Only
@@ -118,6 +130,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
 - No live framebuffer/draw command exists in any published tool, source or the RT82 research **[searched]**.
 
 ## First GIF upload (2026-10-21)
+
 - `pnpm qk108 draw-test` uploaded a 1-frame test pattern in 2.3 s (table write 104 ms, erase 742 ms incl. 500 ms
   fixed wait, 301 packets in 886 ms, finish 526 ms). Slot table afterwards: `00 01 01 | 00 00 c8 41 00`
   **[verified]**. After switching to the GIF page (Fn + Right Shift), the screen showed the test pattern correctly: bars,
@@ -126,6 +139,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   Fn + Left Ctrl = `TEST_CL`, top-row key left of the knob = `L_SHUT`. The knob is volume **[source]**.
 
 ## Flipbook: live frame switching via the slot table (2026-10-21)
+
 - Uploaded 4 one-frame GIFs (red/green/blue/yellow, 1 block each, 7.3 s), then re-pointed ALL slots at one
   frame at a time with table-only writes: `1B 38`, `15` x3, `16`, `1A`, `11` (no erase, no image write).
   **The screen redrew to the new frame on its own, while on the GIF page** **[verified, by eye]**.
@@ -147,6 +161,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   key or the keyboard's power switch **[inferred]**.
 
 ## Stable live flipbook: "flip" mode (2026-10-22)
+
 - `func` mode (`10`, `15` x3, `16`, `11`) passed 150 switches with no freeze (109 ms each, up to 9.2/s), but the
   **screen never redraws**: the table changes silently, even across a USB drop-off **[verified, by eye]**.
 - Redraw trigger test, after a `func` switch each time: `14` READ_FUNC → no redraw; `1A` INIT_LCD alone → redraw;
@@ -157,6 +172,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   over and over, not from `1A` **[inferred: same 150-switch test, only difference is no `1B`]**.
 
 ## Typing meter (2026-10-22)
+
 - `pnpm qk108 meter`: 13 one-frame levels + a 36-frame, 20 fps explosion QGIF (228 KB), 17 blocks in all, uploaded in
   36.5 s with one visible slot. Images beyond the visible slots are stored and reached by re-pointing slot 1
   **[verified]**.
@@ -165,6 +181,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   so the uploader now allows ~1 s per block **[verified]**.
 
 ## Writing new frames without a full upload (2026-10-22)
+
 - Upload with spare blocks: set the table's total-block count and the `18` erase count to images + spares. The
   spares are erased and left empty **[verified: 17 used + 8 spare = 25 allocated]**.
 - `19` FLASH_WRITE into an erased spare block works **outside download mode**: with no session (cyan, block 17)
@@ -175,6 +192,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
 - Flash can only be written once per erase, so each spare block can be used once until the next full upload.
 
 ## Live clock (2026-10-22)
+
 - `pnpm qk108 meter` shows a clock when idle. Each minute's face (2-frame QGIF, blinking colon, 17,223 B) is written
   into the next spare block ~6 s before the minute (~1 s per write), then flipped to when the minute turns.
 - Run with a 60-block pool: upload took 74 s (77 blocks allocated); faces for 12:34/12:35/12:36 were written to blocks
@@ -185,6 +203,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
 - When the pool runs out (~1 hour), everything is re-uploaded with a fresh pool, about 74 s of "Downloading".
 
 ## Erasing without a full upload (2026-10-22)
+
 - `18` erase with no download session (no `1B`) got no reply and hung the screen chip. It reconnected to USB but
   answered nothing until a full power cycle: USB unplugged and the power switch off ~10 s. The screen key alone
   did not reset it **[verified]**.
@@ -206,6 +225,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   before running anything.
 
 ## Epomaker Hub /oled analysis (2026-10-22, static, bundle `index-lRdp-yeI.js`)
+
 - Hub lists the QK108 (36b0:30af) as an "lcd"-kind OLED device: 240x135, 3 layers, max 40 frames, frame delay
   20-1000 ms. It uses the same code as RT82/RT98/TH108 V2 PM **[Hub JS]**.
 - No live framebuffer, pixel streaming, text or system-monitor path for this screen. Text and drawings are
@@ -219,6 +239,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   our keyboard. It could allow erasing a region that doesn't start at block 0.
 
 ## Live streaming: the screen as a slow second monitor (2026-10-22)
+
 - Method (`src/stream.ts`, `FrameStreamer`): write a QGIF header (65535 frames, 8 fps) + keyframe into an erased
   region, flip to it, then keep appending frame records ~1 s ahead of the playhead with bare `19` writes. Frames with
   no new content are "nothing changed" records (255 B bitmap). No download mode while streaming.
@@ -230,6 +251,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   (16.6 KB) takes ~0.9 s.
 
 ## Erasing with NO download mode (2026-10-22)
+
 - **`18` works inside the plain FUNC session**: `10`, table write (`15` x3 + `16`) with allocation = blocks to
   erase, `18`, `11`, then restore the real table with a func (or flip) table write. Erasing block 0 replied in
   179 ms (status 0x00). A fresh red frame written there afterwards was clean, the meter frames at blocks 16+ were
@@ -251,17 +273,19 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   blocks 10/11 intact, erase 231 ms **[verified, by eye]**. Conclusion: erase clears blocks 0..allocation-1, period.
 
 ## Rotation (dashboard `stream-rotate`, 2026-10-22)
+
 - LiveScreen v1 (stream area 2 blocks, 3 parking blocks, WAIT fallback): 60 s of random numbers, 202 frames, 7 rotations
   (6 parked + 1 WAIT). Erases of the stream area took ~0.3 s, a full 5-block erase 0.8 s. Never white, Downloading
   or garbled **[verified, by eye]**. Each rotation froze updates ~3.2 s: writing the parking still and the new
   keyframe (~0.9 s each) plus flips.
-- Seamless rotation v2 (dashboard `stream-seamless`, parking *streams*, background prep): software never starved
+- Seamless rotation v2 (dashboard `stream-seamless`, parking _streams_, background prep): software never starved
   (5 rotations in 61 s, max 5 frames behind), but on screen it **froze ~2 s a few times and stuttered**
   **[verified, by eye]**. Causes: each switch restarts on a keyframe ~1 s old plus a 1 s buffer of empty frames,
   and USB is ~80% busy with 8 fps random numbers, so the extra 17 KB keyframes crowd out content (3.8 content frames/s).
 - Writes so far wait for each packet's reply (~3 ms, ~18 KB/s). Next: pipelined writes (`fast-writes`).
 
 ## Pipelined writes (dashboard `fast-writes`, 2026-10-22)
+
 - Keeping several `19` FLASH_WRITE packets in flight before reading replies works and is clean: a 16,840 B frame took
   910 ms with 1 in flight (18.5 KB/s) and 304 ms with 4, 8 or 16 in flight (55 KB/s). All four letters displayed
   correctly **[verified, by eye]**. 8 and 16 are no faster, so the ceiling is USB's ~1 packet/ms. `Screen.writeWindow`
@@ -278,6 +302,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   area) rotations are ~7x rarer, and they happen early during idle moments when possible.
 
 ## Real display delay (2026-10-22)
+
 - Drawing pad (dashboard `draw-pad`): with software buffers of 1 s, 0.5 s and 0.25 s, the user saw the same ~2 s delay
   every time **[verified, by eye]**. The log showed 8.0 frames/s written, no rotations and buffers as set, so the
   screen adds ~1.5-2 s of its own. Leading guess: playback of frame 0 starts well after the switch (`1A`) returns,
@@ -306,14 +331,15 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   - no padding: 437, 483, 580, 583 ms, median **~580 ms**
   - 1.5 KB padding: 687, 823, 925, 957 ms, median ~925 ms
   - 3 KB padding: 1945 (mid-recycle), 488, 521 (right after a fresh stream), 843 ms
-  **Padding makes it worse.** The delay creeps up within a stream and drops back to ~0.5 s on a fresh one: playback
-  runs a bit slower than 10 fps (~1% with plain frames, more with padded ones). The floor is ~0.45-0.5 s. LiveScreen
-  defaults are now 10 fps, 3-frame buffer, no padding.
+    **Padding makes it worse.** The delay creeps up within a stream and drops back to ~0.5 s on a fresh one: playback
+    runs a bit slower than 10 fps (~1% with plain frames, more with padded ones). The floor is ~0.45-0.5 s. LiveScreen
+    defaults are now 10 fps, 3-frame buffer, no padding.
 - Using the **fastest click** per setting (least affected by reaction time) instead of the median: no padding =
   **~0.33-0.44 s** real delay (fastest clicks 576 / 687 ms after send, minus ~250 ms reaction); 1.5 KB = ~0.69 s;
   3 KB = ~0.49 s (right after a fresh stream). Reaction tests now report best and median.
 
 ## Screen server live on the keyboard (2026-10-23)
+
 - `bun run screen` (localhost:4110): first start ran the one-time flash setup (48 managed blocks + WAIT/DONE/BLANK,
   34 s of Downloading), then streamed Clock mode from 10:00:43. The user confirmed **the clock with live seconds on the
   keyboard** **[verified, by eye]**. Modes: draw, key ticker, clock, system monitor, Life, starfield, message, image.

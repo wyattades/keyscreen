@@ -34,7 +34,13 @@ export class Leds {
 
 /** The lock-LED state Linux last sent to the QK108 (readable without root). */
 export function hostLedState(): number {
-  const names: Record<string, number> = { numlock: Led.Num, capslock: Led.Caps, scrolllock: Led.Scroll, compose: Led.Compose, kana: Led.Kana };
+  const names: Record<string, number> = {
+    numlock: Led.Num,
+    capslock: Led.Caps,
+    scrolllock: Led.Scroll,
+    compose: Led.Compose,
+    kana: Led.Kana,
+  };
   let bits = 0;
   for (const n of readdirSync("/sys/class/leds")) {
     const [, kind] = n.split("::");
