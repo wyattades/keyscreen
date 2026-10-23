@@ -1,0 +1,4 @@
+{
+  "goal": "Fast second monitor: working. The screen server streams live modes and API content to the keyboard (~0.4 s delay, no Downloading after the one-time setup); the user confirmed a live clock. Polish left: global key capture (needs log-out/in for the input group) and trying every mode on the real keyboard.",
+  "updated": "2026-10-23"
+}

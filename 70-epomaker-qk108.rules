@@ -1,0 +1,15 @@
+# Epomaker QK108: let the logged-in user (and Chrome WebHID) open only the
+# vendor HID interfaces without root. The plain keyboard interfaces stay root-only
+# so other programs can't read keystrokes.
+#
+# udev matches all ATTRS{} of one rule against a single parent device, and the
+# vendor/product IDs live on a different parent than the interface number, so we
+# tag the device first and check the interface in a second rule.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="36b0", ATTRS{idProduct}=="30af", ENV{QK108_PART}="keyboard"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1919", ATTRS{idProduct}=="1919", ENV{QK108_PART}="lcd"
+# Keyboard: VIA raw HID (usage page 0xFF60) is USB interface 1
+# LCD controller ("RDR Epomaker QK108", behind the keyboard's internal hub): vendor interface 1 (0x00FF, 64-byte reports)
+SUBSYSTEM=="hidraw", ENV{QK108_PART}=="?*", ATTRS{bInterfaceNumber}=="01", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# Keyboard: standard boot-keyboard interface 0, WRITE-ONLY for plugdev (mode 0620, no uaccess ACL).
+# Lets us set the lock LEDs (which the screen shows as icons) without being able to read keystrokes.
+SUBSYSTEM=="hidraw", ENV{QK108_PART}=="keyboard", ATTRS{bInterfaceNumber}=="00", MODE="0620", GROUP="plugdev"

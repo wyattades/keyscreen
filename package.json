@@ -1,0 +1,23 @@
+{
+  "name": "keyboard-magic",
+  "private": true,
+  "type": "module",
+  "description": "Control the Epomaker QK108 keyboard screen over USB (Linux hidraw)",
+  "scripts": {
+    "qk108": "bun src/cli.ts",
+    "lab": "bun lab/lab.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "bun": ">=1.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  },
+  "packageManager": "pnpm@12.14.0",
+  "bin": {
+    "qk108": "src/cli.ts"
+  }
+}

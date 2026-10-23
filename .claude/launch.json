@@ -1,0 +1,34 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "screen",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "src/cli.ts",
+        "serve"
+      ],
+      "port": 4110
+    },
+    {
+      "name": "screen-fake",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "src/cli.ts",
+        "serve",
+        "--fake",
+        "--port",
+        "4111"
+      ],
+      "port": 4111
+    },
+    {
+      "name": "lab",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "lab/lab.ts"
+      ],
+      "port": 4108
+    }
+  ]
+}
