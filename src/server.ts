@@ -8,6 +8,7 @@
 //   POST /text            body: plain text  -> Message mode                qk108 text "..."
 //   POST /image           body: PNG or raw RGBA 240x136 -> Image mode      qk108 image <file>
 //   GET  /frame.png       what the screen is showing (or about to)         qk108 frame [out.png]
+//   POST /api/shutdown    stop the server cleanly                          qk108 stop
 //   WS   /ws              JSON mode messages; binary messages = images
 import { join } from "node:path";
 import { allModes, ImageMode, TickerMode, type Mode } from "./modes.ts";
@@ -112,6 +113,10 @@ export function startServer(opts: ServerOptions = {}) {
           handleMessage((await req.json()) as Record<string, unknown>);
           return json({ ok: true });
         }
+        if (url.pathname === "/api/shutdown" && req.method === "POST") {
+          setTimeout(() => void shutdown(), 50);
+          return json({ ok: true });
+        }
         if (url.pathname === "/text" && req.method === "POST") {
           handleMessage({ type: "text", text: await req.text() });
           return json({ ok: true });
@@ -141,13 +146,16 @@ export function startServer(opts: ServerOptions = {}) {
   setMode(opts.mode ?? "clock");
   void service.run();
 
-  const shutdown = async () => {
+  let stopping = false;
+  async function shutdown() {
+    if (stopping) return;
+    stopping = true;
     log("stopping");
     mode?.stop();
     await service.stop().catch(() => {});
     server.stop();
     process.exit(0);
-  };
+  }
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
   return server;

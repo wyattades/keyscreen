@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=QK108 screen indicator
+Comment=Top-bar icon that opens the keyboard screen dashboard
+Exec=/usr/bin/python3 @ROOT@/desktop/indicator.py
+Icon=input-keyboard
+X-GNOME-Autostart-enabled=true
+NoDisplay=true

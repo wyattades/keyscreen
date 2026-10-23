@@ -22,6 +22,7 @@ Commands for the running server:
   draw clear             clear the drawing
   reseed                 restart the Game of Life
   frame [out.png]        save what the screen is showing
+  stop                   stop the server cleanly
 
 Work with or without the server (without it, the picture stays on screen after exit):
   text <message>         show a message
@@ -155,6 +156,11 @@ switch (cmd) {
     console.log(`saved ${out}`);
     break;
   }
+
+  case "stop":
+    await post("/api/shutdown", {});
+    console.log("server stopping");
+    break;
 
   // ---- server or direct ----
   case "text": {

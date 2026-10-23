@@ -43,14 +43,15 @@ keyboard shows it on its GIF page: press **Fn + Right Shift** to get there. Mode
 
 Every server action has a CLI command:
 
-| Server            | CLI                                                                                 |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `GET /api/status` | `qk108 status`, `qk108 modes`                                                       |
-| `POST /api/mode`  | `qk108 mode <id>`                                                                   |
-| `POST /api/input` | `qk108 key <letters>`, `qk108 draw x0,y0 x1,y1`, `qk108 draw clear`, `qk108 reseed` |
-| `POST /text`      | `qk108 text <message>`                                                              |
-| `POST /image`     | `qk108 image <file.png>`                                                            |
-| `GET /frame.png`  | `qk108 frame [out.png]`                                                             |
+| Server               | CLI                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `GET /api/status`    | `qk108 status`, `qk108 modes`                                                       |
+| `POST /api/mode`     | `qk108 mode <id>`                                                                   |
+| `POST /api/input`    | `qk108 key <letters>`, `qk108 draw x0,y0 x1,y1`, `qk108 draw clear`, `qk108 reseed` |
+| `POST /text`         | `qk108 text <message>`                                                              |
+| `POST /image`        | `qk108 image <file.png>`                                                            |
+| `GET /frame.png`     | `qk108 frame [out.png]`                                                             |
+| `POST /api/shutdown` | `qk108 stop`                                                                        |
 
 Without the server, `text` and `image` write a still picture straight to the keyboard, and it stays there after the
 command exits. These commands talk to the keyboard directly, so stop the server first:
@@ -72,6 +73,20 @@ Other notes:
   typed into its page.
 - Only one program can drive the screen at a time.
 
+## Start at login, with a top-bar icon
+
+```bash
+desktop/install.sh                                       # install (desktop/install.sh --remove to undo)
+gnome-extensions enable ubuntu-appindicators@ubuntu.com  # once, if top-bar indicators are off
+```
+
+This runs the server as a systemd user service whenever you log in (`systemctl --user status qk108`,
+`journalctl --user -u qk108`) and adds a keyboard icon to the top bar. Click it to open the dashboard (it starts the
+server first if it's stopped). Right-click for Start/Stop server. The dashboard's **Stop server** button and
+`qk108 stop` stop it cleanly, and it stays stopped until started again.
+
+To start it at boot before anyone logs in, also run `loginctl enable-linger`.
+
 ## Layout
 
 | Path                            | What's in it                                                       |
@@ -83,6 +98,7 @@ Other notes:
 | `src/server.ts`, `src/ui/`      | HTTP/WebSocket server and its page                                 |
 | `src/modes.ts`                  | the modes                                                          |
 | `src/cli.ts`                    | the CLI                                                            |
+| `desktop/`                      | startup service and top-bar indicator                              |
 | `lab/`                          | test lab: on-device experiments and the dashboard for running them |
 | `state/`                        | runtime state (the flash layout)                                   |
 | `PROTOCOL.md`                   | the screen's USB API and behavior                                  |
@@ -111,3 +127,10 @@ bun lab/lab.ts run <id>          # run one in the terminal
 
 Cases live in `lab/cases.ts`. Results go to `lab/results.jsonl`, run logs to `lab/runs/`. Stop the screen server
 before running tests.
+
+## Development
+
+```bash
+pnpm typecheck
+pnpm format         # Prettier
+```

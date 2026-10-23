@@ -246,6 +246,7 @@
       <header>
         <h1>Keyboard screen</h1>
         <span class="chip" id="state">connecting…</span>
+        <button class="act" id="stop" style="margin-left: auto">Stop server</button>
       </header>
       <div class="grid">
         <section class="card">
@@ -269,7 +270,8 @@
       let status = null,
         ws = null,
         builtModes = "",
-        panelFor = "";
+        panelFor = "",
+        stopped = false;
 
       // ---- connection ----
       function connect() {
@@ -304,10 +306,13 @@
         try {
           status = await fetch("/api/status").then((r) => r.json());
         } catch {
-          $("#state").textContent = "server not reachable";
+          $("#stop").hidden = true;
+          $("#state").textContent = stopped ? "server stopped" : "server not reachable";
           $("#state").className = "chip bad";
           return;
         }
+        stopped = false;
+        $("#stop").hidden = false;
         const s = status.state;
         $("#state").textContent = s === "running" ? "live" : s + (status.lastError ? ` — ${status.lastError}` : "");
         $("#state").className = "chip " + (s === "running" ? "ok" : s === "reconnecting" ? "bad" : "");
@@ -339,6 +344,14 @@
       }
       poll();
       setInterval(poll, 1000);
+
+      $("#stop").onclick = async () => {
+        if (!confirm("Stop the screen server? The keyboard screen stops updating until it's started again.")) return;
+        stopped = true;
+        $("#stop").disabled = true;
+        await fetch("/api/shutdown", { method: "POST" }).catch(() => {});
+        $("#stop").disabled = false;
+      };
 
       // ---- per-mode panels ----
       function renderPanel() {
