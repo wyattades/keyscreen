@@ -4,6 +4,25 @@ Turns the screen on an Epomaker QK108 into a small live second monitor, from Lin
 
 ![Every mode on the keyboard screen](docs/modes.png)
 
+## Hardware
+
+Only the QK108 has been tested. The others share its screen chip (from the keyboard maker RDMCTMZT, USB vendor
+`36b0`), going by Epomaker Hub's own device settings and other projects, but nobody has run this code on them.
+
+| Keyboard                                    | USB ID      | Screen  | Status                                                                                                                               |
+| ------------------------------------------- | ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Epomaker QK108                              | `36b0:30af` | 240x136 | **Tested**                                                                                                                           |
+| Epomaker RT82                               | `36b0:30a3` | 240x135 | Likely: same screen settings in Epomaker Hub; [rt82display](https://github.com/guysoft/rt82display) drives it with the same commands |
+| Epomaker RT98                               | `36b0:30b9` | 240x136 | Likely: same screen settings in Epomaker Hub; its manual uses the same image.rdmctmzt.com uploader                                   |
+| Epomaker TH108 V2 PM                        | `36b0:3101` | 320x240 | Possible: same screen settings, but the code assumes 240x136                                                                         |
+| Other keyboards that use image.rdmctmzt.com | `36b0:*`    | varies  | Possible: the uploader accepts any device with this screen chip                                                                      |
+
+Not compatible (different screen chips and protocols): Epomaker TH108 Pro, TH99 Pro, G84 Pro, TH80 V2 Pro,
+RT100 Pro, RT85, RT75 and Glyph.
+
+Trying another keyboard needs its USB ID in `src/qk108.ts`, `src/keys.ts`, `src/leds.ts` and `70-epomaker-qk108.rules`. If you get one
+working, please open an issue.
+
 ## Setup (once)
 
 ```bash
