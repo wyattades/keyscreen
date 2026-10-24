@@ -2,7 +2,7 @@
 // ctx.show(); the screen service streams whatever was shown last. Modes are designed around the
 // ~55 KB/s USB limit: they change a small part of the screen per frame (sparse dots, 4x4 cells,
 // digits), which streams smoothly, rather than redrawing everything.
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { Canvas, H, W, hsv, type RGB } from "./canvas.ts";
 import { GLYPH_H, glyph } from "./font.ts";
 import { onTypedChar } from "./keys.ts";
@@ -235,36 +235,69 @@ export class ClockMode implements Mode {
 export class SysmonMode implements Mode {
   id = "sysmon";
   name = "System monitor";
-  blurb = "CPU, memory and network for this computer, updated every second.";
+  blurb = "Time, CPU, GPU, memory, network and temperatures for this computer, updated every second.";
   private timer?: ReturnType<typeof setInterval>;
   private prevCpu?: { idle: number; total: number };
   private prevNet?: { rx: number; tx: number; t: number };
-  private history: number[] = [];
+  private gpu: Gpu | null = null;
+  private gpuBusy = false;
+  private hasGpu = true;
+  private cpuTempPath = findCpuTemp();
 
   start(ctx: ModeContext) {
     const tick = () => {
+      this.pollGpu();
       const cpu = this.cpu(),
         mem = this.mem(),
-        net = this.net();
-      this.history = [...this.history, cpu].slice(-57);
+        net = this.net(),
+        gpu = this.gpu;
       const c = new Canvas([6, 10, 14]);
-      const bar = (y: number, label: string, frac: number, color: RGB) => {
-        c.text(label, 8, y, 2, [210, 220, 230]);
-        c.rect(116, y, 116, 12, [30, 40, 50]);
-        c.rect(116, y, Math.round((116 * Math.min(1, frac)) / 4) * 4, 12, color);
+      const now = new Date();
+      const dim: RGB = [130, 140, 155];
+
+      // Time and date.
+      c.text(now.toLocaleTimeString("en-GB", { hour12: false }), 4, 4, 2, [255, 255, 255]);
+      c.text(
+        now.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" }).replace(",", ""),
+        236,
+        8,
+        1,
+        dim,
+        "right",
+      );
+
+      // Bars: label, bar, percentage.
+      const bar = (y: number, label: string, frac: number | null, color: RGB) => {
+        c.text(label, 4, y, 2, [210, 220, 230]);
+        c.rect(56, y, 124, 12, [30, 40, 50]);
+        if (frac === null) {
+          c.text("--", 236, y, 2, dim, "right");
+          return;
+        }
+        const f = Math.max(0, Math.min(1, frac));
+        c.rect(56, y, Math.round((124 * f) / 4) * 4, 12, color);
+        c.text(`${Math.round(f * 100)}%`, 236, y, 2, [255, 255, 255], "right");
       };
-      bar(8, `CPU ${String(Math.round(cpu * 100)).padStart(3)}%`, cpu, cpu > 0.8 ? [255, 90, 70] : [80, 200, 120]);
-      bar(28, `MEM ${String(Math.round(mem * 100)).padStart(3)}%`, mem, [90, 150, 255]);
-      const fmt = (b: number) => (b > 1e6 ? `${(b / 1e6).toFixed(1)}M` : `${Math.round(b / 1e3)}K`);
-      c.text(`NET DOWN ${fmt(net.rx)} UP ${fmt(net.tx)}`, 8, 50, 2, [200, 190, 120]);
-      // CPU history graph (each sample a 4px-wide column).
-      const gy = 72,
-        gh = 56;
-      c.rect(4, gy, 232, gh, [14, 20, 28]);
-      this.history.forEach((v, i) => {
-        const h = Math.max(4, Math.round((gh * v) / 4) * 4);
-        c.rect(4 + (i + 57 - this.history.length) * 4, gy + gh - h, 4, h, hsv(120 - 120 * v, 0.8, 0.9));
-      });
+      const heat = (v: number): RGB => (v > 0.85 ? [255, 90, 70] : v > 0.6 ? [255, 190, 60] : [80, 200, 120]);
+      bar(24, "CPU", cpu, heat(cpu));
+      bar(40, "GPU", gpu ? gpu.util : null, gpu ? heat(gpu.util) : dim);
+      bar(56, "MEM", mem.used / mem.total, [90, 150, 255]);
+      bar(72, "VRM", gpu ? gpu.memUsed / gpu.memTotal : null, [170, 120, 255]);
+
+      // Network, in fixed columns so long numbers never run off the edge.
+      c.text(`↓${rate(net.rx)}`, 4, 90, 2, [110, 220, 160]);
+      c.text(`↑${rate(net.tx)}`, 124, 90, 2, [255, 170, 90]);
+
+      // Details.
+      const cpuTemp = this.cpuTemp();
+      const temps = [cpuTemp === null ? "" : `CPU ${cpuTemp}C`, gpu ? `GPU ${gpu.temp}C ${Math.round(gpu.power)}W` : ""]
+        .filter(Boolean)
+        .join("   ");
+      c.text(temps, 4, 107, 1, dim);
+      const vram = gpu ? `   VRAM ${gb(gpu.memUsed * 2 ** 20)}/${gb(gpu.memTotal * 2 ** 20)}G` : "";
+      c.text(`RAM ${gb(mem.used)}/${gb(mem.total)}G${vram}`, 4, 117, 1, dim);
+      const load = readFileSync("/proc/loadavg", "utf8").split(" ")[0];
+      c.text(`LOAD ${load}   UP ${uptime()}`, 4, 127, 1, dim);
       ctx.show(c.snapshot());
     };
     tick();
@@ -272,6 +305,39 @@ export class SysmonMode implements Mode {
   }
   stop() {
     clearInterval(this.timer);
+  }
+
+  /** Asks nvidia-smi in the background (never blocks the stream); the next frame uses the answer. */
+  private pollGpu() {
+    if (!this.hasGpu || this.gpuBusy) return;
+    this.gpuBusy = true;
+    let p: ReturnType<typeof Bun.spawn>;
+    try {
+      p = Bun.spawn(
+        [
+          "nvidia-smi",
+          "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+          "--format=csv,noheader,nounits",
+        ],
+        { stdout: "pipe", stderr: "ignore" },
+      );
+    } catch {
+      this.hasGpu = false;
+      return;
+    }
+    new Response(p.stdout as ReadableStream)
+      .text()
+      .then((out) => {
+        const [util, used, total, temp, power] = out
+          .split("\n")[0]
+          .split(",")
+          .map((s) => parseFloat(s));
+        this.gpu = Number.isFinite(total)
+          ? { util: util / 100, memUsed: used, memTotal: total, temp, power: power || 0 }
+          : null;
+      })
+      .catch(() => (this.gpu = null))
+      .finally(() => (this.gpuBusy = false));
   }
 
   private cpu() {
@@ -282,13 +348,22 @@ export class SysmonMode implements Mode {
     this.prevCpu = { idle, total };
     return p && total > p.total ? 1 - (idle - p.idle) / (total - p.total) : 0;
   }
+  private cpuTemp(): number | null {
+    if (!this.cpuTempPath) return null;
+    try {
+      return Math.round(parseInt(readFileSync(this.cpuTempPath, "utf8")) / 1000);
+    } catch {
+      return null;
+    }
+  }
+  /** Bytes used and total. */
   private mem() {
     const m = Object.fromEntries(
       readFileSync("/proc/meminfo", "utf8")
         .split("\n")
         .map((l) => [l.split(":")[0], parseInt(l.split(":")[1] ?? "0")]),
     );
-    return 1 - m.MemAvailable / m.MemTotal;
+    return { used: (m.MemTotal - m.MemAvailable) * 1024, total: m.MemTotal * 1024 };
   }
   private net() {
     let rx = 0,
@@ -305,6 +380,51 @@ export class SysmonMode implements Mode {
     this.prevNet = { rx, tx, t };
     return p ? { rx: ((rx - p.rx) * 1000) / (t - p.t), tx: ((tx - p.tx) * 1000) / (t - p.t) } : { rx: 0, tx: 0 };
   }
+}
+
+interface Gpu {
+  util: number;
+  /** MiB */
+  memUsed: number;
+  memTotal: number;
+  temp: number;
+  power: number;
+}
+
+/** Bytes per second in at most 6 characters: 999B, 12.3K, 1.2M, 115M. */
+function rate(b: number): string {
+  const units = ["B", "K", "M", "G"];
+  let i = 0;
+  while (b >= 1000 && i < units.length - 1) {
+    b /= 1000;
+    i++;
+  }
+  return (i === 0 || b >= 100 ? Math.round(b).toString() : b.toFixed(1)) + units[i];
+}
+
+/** Bytes as GB, one decimal under 10. */
+function gb(b: number): string {
+  const g = b / 2 ** 30;
+  return g < 10 ? g.toFixed(1) : Math.round(g).toString();
+}
+
+function uptime(): string {
+  const s = parseFloat(readFileSync("/proc/uptime", "utf8"));
+  const d = Math.floor(s / 86400),
+    h = Math.floor((s % 86400) / 3600),
+    m = Math.floor((s % 3600) / 60);
+  return d ? `${d}D ${h}H` : h ? `${h}H ${m}M` : `${m}M`;
+}
+
+/** The CPU package temperature sensor (Intel coretemp or AMD k10temp), if there is one. */
+function findCpuTemp(): string | null {
+  try {
+    for (const h of readdirSync("/sys/class/hwmon")) {
+      const name = readFileSync(`/sys/class/hwmon/${h}/name`, "utf8").trim();
+      if (name === "coretemp" || name === "k10temp" || name === "zenpower") return `/sys/class/hwmon/${h}/temp1_input`;
+    }
+  } catch {}
+  return null;
 }
 
 // ---------------------------------------------------------------------------------------------
