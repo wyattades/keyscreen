@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Top-bar indicator for the QK108 screen server.
+"""Top-bar indicator for the keyscreen server.
 
 Click: open the dashboard (starting the server first if it's stopped).
 Right-click: menu with Open dashboard / Start or Stop server.
@@ -14,7 +14,7 @@ import urllib.request
 
 from gi.repository import Gio, GLib
 
-SERVER = os.environ.get("QK108_SERVER", "http://localhost:4110")
+SERVER = os.environ.get("KEYSCREEN_SERVER", "http://localhost:4110")
 ITEM_PATH = "/StatusNotifierItem"
 MENU_PATH = "/MenuBar"
 ICONS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
@@ -126,23 +126,23 @@ class Indicator:
         GLib.timeout_add(250, wait)
 
     def start_server(self):
-        subprocess.Popen(["systemctl", "--user", "start", "qk108.service"])
+        subprocess.Popen(["systemctl", "--user", "start", "keyscreen.service"])
 
     def stop_server(self):
         try:
             urllib.request.urlopen(urllib.request.Request(f"{SERVER}/api/shutdown", data=b"{}", method="POST"), timeout=2)
         except Exception:
-            subprocess.Popen(["systemctl", "--user", "stop", "qk108.service"])
+            subprocess.Popen(["systemctl", "--user", "stop", "keyscreen.service"])
         GLib.timeout_add(1500, self.refresh)
 
     # ---- StatusNotifierItem ----
     def on_item_prop(self, _bus, _sender, _path, _iface, prop):
         values = {
             "Category": GLib.Variant("s", "Hardware"),
-            "Id": GLib.Variant("s", "qk108-screen"),
+            "Id": GLib.Variant("s", "keyscreen"),
             "Title": GLib.Variant("s", "Keyboard screen"),
             "Status": GLib.Variant("s", "Active"),
-            "IconName": GLib.Variant("s", "qk108-symbolic" if self.running else "qk108-off-symbolic"),
+            "IconName": GLib.Variant("s", "keyscreen-symbolic" if self.running else "keyscreen-off-symbolic"),
             "IconThemePath": GLib.Variant("s", ICONS),
             "ToolTip": GLib.Variant("(sa(iiay)ss)", ("", [], "Keyboard screen", self.tooltip())),
             "ItemIsMenu": GLib.Variant("b", False),

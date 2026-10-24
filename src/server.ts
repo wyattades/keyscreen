@@ -1,14 +1,14 @@
 // The keyboard screen server: owns the QK108 screen and shows live content from modes or other
-// programs. Started by `qk108 serve`; then open http://localhost:4110.
+// programs. Started by `keyscreen serve`; then open http://localhost:4110.
 //
-// HTTP API (every endpoint has a matching `qk108` command):
-//   GET  /api/status      state, current mode, list of modes, stats       qk108 status / qk108 modes
-//   POST /api/mode        {"id": "clock"}                                  qk108 mode <id>
-//   POST /api/input       a mode message, e.g. {"type":"key","key":"A"}    qk108 key / draw / reseed
-//   POST /text            body: plain text  -> Message mode                qk108 text "..."
-//   POST /image           body: PNG or raw RGBA 240x136 -> Image mode      qk108 image <file>
-//   GET  /frame.png       what the screen is showing (or about to)         qk108 frame [out.png]
-//   POST /api/shutdown    stop the server cleanly                          qk108 stop
+// HTTP API (every endpoint has a matching `keyscreen` command):
+//   GET  /api/status      state, current mode, list of modes, stats       keyscreen status / keyscreen modes
+//   POST /api/mode        {"id": "clock"}                                  keyscreen mode <id>
+//   POST /api/input       a mode message, e.g. {"type":"key","key":"A"}    keyscreen key / draw / reseed
+//   POST /text            body: plain text  -> Message mode                keyscreen text "..."
+//   POST /image           body: PNG or raw RGBA 240x136 -> Image mode      keyscreen image <file>
+//   GET  /frame.png       what the screen is showing (or about to)         keyscreen frame [out.png]
+//   POST /api/shutdown    stop the server cleanly                          keyscreen stop
 //   WS   /ws              JSON mode messages; binary messages = images
 import { join } from "node:path";
 import { allModes, ImageMode, TickerMode, type Mode } from "./modes.ts";

@@ -1,13 +1,13 @@
-# systemd user service for the QK108 screen server. Installed by desktop/install.sh
+# systemd user service for the keyscreen server. Installed by desktop/install.sh
 # (@ROOT@ and @BUN@ are filled in there). Starts when you log in.
 [Unit]
-Description=QK108 keyboard screen server
+Description=keyscreen keyboard screen server
 After=graphical-session.target
 
 [Service]
 WorkingDirectory=@ROOT@
 ExecStart=@BUN@ src/cli.ts serve
-# A clean stop (the dashboard's Stop button, qk108 stop) exits 0 and stays stopped.
+# A clean stop (the dashboard's Stop button, keyscreen stop) exits 0 and stays stopped.
 Restart=on-failure
 RestartSec=3
 

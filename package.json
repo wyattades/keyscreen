@@ -1,10 +1,10 @@
 {
-  "name": "keyboard-magic",
+  "name": "keyscreen",
   "private": true,
   "type": "module",
-  "description": "Control the Epomaker QK108 keyboard screen over USB (Linux hidraw)",
+  "description": "Live second-monitor for keyboard screens over USB (Linux). Tested on the Epomaker QK108",
   "scripts": {
-    "qk108": "bun src/cli.ts",
+    "keyscreen": "bun src/cli.ts",
     "lab": "bun lab/lab.ts",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
@@ -21,6 +21,6 @@
   },
   "packageManager": "pnpm@12.14.0",
   "bin": {
-    "qk108": "src/cli.ts"
+    "keyscreen": "src/cli.ts"
   }
 }

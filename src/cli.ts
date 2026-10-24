@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// qk108: control the Epomaker QK108 keyboard screen.   Run `qk108 help` for the full list.
+// keyscreen: control a keyboard's built-in screen.   Run `keyscreen help` for the full list.
 import { readFileSync, writeFileSync } from "node:fs";
 import { showStill, withScreen } from "./direct.ts";
 import { Led, Leds } from "./leds.ts";
@@ -7,7 +7,7 @@ import { decodePng, fitImage, isPng } from "./png.ts";
 import { DEFAULT_PORT, startServer } from "./server.ts";
 import { renderText } from "./textframe.ts";
 
-const HELP = `qk108: control the Epomaker QK108 keyboard screen
+const HELP = `keyscreen: control a keyboard's built-in screen (tested on the Epomaker QK108)
 
 Screen server (live modes, web page, API for other programs):
   serve [--fake] [--port N] [--mode ID]   start it (then open http://localhost:${DEFAULT_PORT})
@@ -38,9 +38,9 @@ Straight on the keyboard (stop the server first):
 Lock-light icons on the screen (works anytime):
   leds <none|num|caps|num+caps>
 
-Server address: QK108_SERVER (default http://localhost:${DEFAULT_PORT}).`;
+Server address: KEYSCREEN_SERVER (default http://localhost:${DEFAULT_PORT}).`;
 
-const SERVER = process.env.QK108_SERVER ?? `http://localhost:${DEFAULT_PORT}`;
+const SERVER = process.env.KEYSCREEN_SERVER ?? `http://localhost:${DEFAULT_PORT}`;
 const log = (m: string) => console.log(m);
 const [cmd = "help", ...args] = process.argv.slice(2);
 const flag = (name: string) => {
@@ -64,7 +64,7 @@ async function call(path: string, init?: RequestInit): Promise<any> {
   try {
     res = await fetch(`${SERVER}${path}`, init);
   } catch {
-    fail(`the screen server isn't running at ${SERVER}. Start it with: qk108 serve`);
+    fail(`the screen server isn't running at ${SERVER}. Start it with: keyscreen serve`);
   }
   if (!res.ok) fail(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `server said ${res.status}`);
   return res.headers.get("content-type")?.includes("json") ? res.json() : res;
@@ -77,7 +77,7 @@ const post = (path: string, body: unknown) =>
   });
 
 function fail(msg: string): never {
-  console.error(`qk108: ${msg}`);
+  console.error(`keyscreen: ${msg}`);
   process.exit(1);
 }
 
@@ -120,13 +120,13 @@ switch (cmd) {
     break;
   }
   case "mode":
-    if (!args[0]) fail("usage: qk108 mode <id>   (see: qk108 modes)");
+    if (!args[0]) fail("usage: keyscreen mode <id>   (see: keyscreen modes)");
     await post("/api/mode", { id: args[0] });
     console.log(`mode: ${args[0]}`);
     break;
   case "key": {
     const text = args.join(" ");
-    if (!text) fail("usage: qk108 key <letters>");
+    if (!text) fail("usage: keyscreen key <letters>");
     for (const ch of text.toUpperCase()) await post("/api/input", { type: "key", key: ch });
     break;
   }
@@ -139,7 +139,7 @@ switch (cmd) {
     const pt = (p?: string) => (p ?? "").split(",").map(Number);
     const [x0, y0] = pt(a),
       [x1, y1] = pt(b ?? a);
-    if ([x0, y0, x1, y1].some(Number.isNaN)) fail("usage: qk108 draw <x0,y0> <x1,y1> [--color R,G,B] [--size N]");
+    if ([x0, y0, x1, y1].some(Number.isNaN)) fail("usage: keyscreen draw <x0,y0> <x1,y1> [--color R,G,B] [--size N]");
     const color = (flag("--color") ?? "255,255,255").split(",").map(Number);
     await post("/api/mode", { id: "draw" });
     await post("/api/input", { type: "draw", segs: [[x0, y0, x1, y1]], color, size: Number(flag("--size") ?? 2) });
@@ -165,14 +165,14 @@ switch (cmd) {
   // ---- server or direct ----
   case "text": {
     const text = args.join(" ");
-    if (!text) fail("usage: qk108 text <message>");
+    if (!text) fail("usage: keyscreen text <message>");
     if (await serverUp()) await post("/text", text);
     else await withScreen(log, (s, layout) => showStill(s, layout, renderText(text)));
     console.log("shown");
     break;
   }
   case "image": {
-    if (!args[0]) fail("usage: qk108 image <file.png>");
+    if (!args[0]) fail("usage: keyscreen image <file.png>");
     const bytes = loadImage(args[0]);
     if (await serverUp()) await post("/image", bytes);
     else await withScreen(log, (s, layout) => showStill(s, layout, fitImage(decodePng(bytes))));
@@ -218,7 +218,7 @@ switch (cmd) {
     for (const part of want.split("+")) {
       if (part === "num") bits |= Led.Num;
       else if (part === "caps") bits |= Led.Caps;
-      else if (part !== "none" && part !== "off") fail("usage: qk108 leds <none|num|caps|num+caps>");
+      else if (part !== "none" && part !== "off") fail("usage: keyscreen leds <none|num|caps|num+caps>");
     }
     const leds = new Leds();
     leds.set(bits);

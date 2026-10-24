@@ -1,6 +1,6 @@
-# keyboard-magic
+# keyscreen
 
-Turns the screen on an Epomaker QK108 into a small live second monitor, from Linux over USB.
+Turns the screen on a keyboard like the Epomaker QK108 into a small live second monitor, from Linux over USB.
 
 ![Every mode on the keyboard screen](docs/modes.png)
 
@@ -20,13 +20,13 @@ Only the QK108 has been tested. The others share its screen chip (from the keybo
 Not compatible (different screen chips and protocols): Epomaker TH108 Pro, TH99 Pro, G84 Pro, TH80 V2 Pro,
 RT100 Pro, RT85, RT75 and Glyph.
 
-Trying another keyboard needs its USB ID in `src/qk108.ts`, `src/keys.ts`, `src/leds.ts` and `70-epomaker-qk108.rules`. If you get one
+Trying another keyboard needs its USB ID in `src/qk108.ts`, `src/keys.ts`, `src/leds.ts` and `70-keyscreen.rules`. If you get one
 working, please open an issue.
 
 ## Setup (once)
 
 ```bash
-sudo cp 70-epomaker-qk108.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo cp 70-keyscreen.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger
 sudo usermod -aG input "$USER"   # only for capturing keystrokes in any app; log out and back in afterwards
 pnpm install
 ```
@@ -38,14 +38,14 @@ keystroke needs the `input` group.
 Bun runs the TypeScript directly; there's no build step. Close Epomaker Hub / image.rdmctmzt.com tabs first: they
 grab the screen.
 
-## Use it: `pnpm qk108`
+## Use it: `pnpm keyscreen`
 
 ```bash
-pnpm qk108 serve                 # start the screen server, then open http://localhost:4110
-pnpm qk108 mode stars            # switch mode
-pnpm qk108 text "Lunch at 1?"    # show a message (works without the server too)
-pnpm qk108 image picture.png     # show a picture (works without the server too)
-pnpm qk108 help                  # everything else
+pnpm keyscreen serve               # start the screen server, then open http://localhost:4110
+pnpm keyscreen mode stars          # switch mode
+pnpm keyscreen text "Lunch at 1?"  # show a message (works without the server too)
+pnpm keyscreen image picture.png   # show a picture (works without the server too)
+pnpm keyscreen help                # everything else
 ```
 
 The server streams live content to the screen (~0.4 s delay, no "Downloading" after the first-run setup). The
@@ -64,15 +64,15 @@ keyboard shows it on its GIF page: press **Fn + Right Shift** to get there. Mode
 
 Every server action has a CLI command:
 
-| Server               | CLI                                                                                 |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `GET /api/status`    | `qk108 status`, `qk108 modes`                                                       |
-| `POST /api/mode`     | `qk108 mode <id>`                                                                   |
-| `POST /api/input`    | `qk108 key <letters>`, `qk108 draw x0,y0 x1,y1`, `qk108 draw clear`, `qk108 reseed` |
-| `POST /text`         | `qk108 text <message>`                                                              |
-| `POST /image`        | `qk108 image <file.png>`                                                            |
-| `GET /frame.png`     | `qk108 frame [out.png]`                                                             |
-| `POST /api/shutdown` | `qk108 stop`                                                                        |
+| Server               | CLI                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `GET /api/status`    | `keyscreen status`, `keyscreen modes`                                                               |
+| `POST /api/mode`     | `keyscreen mode <id>`                                                                               |
+| `POST /api/input`    | `keyscreen key <letters>`, `keyscreen draw x0,y0 x1,y1`, `keyscreen draw clear`, `keyscreen reseed` |
+| `POST /text`         | `keyscreen text <message>`                                                                          |
+| `POST /image`        | `keyscreen image <file.png>`                                                                        |
+| `GET /frame.png`     | `keyscreen frame [out.png]`                                                                         |
+| `POST /api/shutdown` | `keyscreen stop`                                                                                    |
 
 Without the server, `text` and `image` write a still picture straight to the keyboard, and it stays there after the
 command exits. These commands talk to the keyboard directly, so stop the server first:
@@ -89,7 +89,7 @@ command exits. These commands talk to the keyboard directly, so stop the server 
 
 Other notes:
 
-- `qk108 serve --fake --port 4111` runs the server against a simulated screen, without the keyboard.
+- `keyscreen serve --fake --port 4111` runs the server against a simulated screen, without the keyboard.
 - The key ticker reads every key typed on the QK108 when the server can open `/dev/input`. Otherwise it uses keys
   typed into its page.
 - Only one program can drive the screen at a time.
@@ -101,10 +101,10 @@ desktop/install.sh                                       # install (desktop/inst
 gnome-extensions enable ubuntu-appindicators@ubuntu.com  # once, if top-bar indicators are off
 ```
 
-This runs the server as a systemd user service whenever you log in (`systemctl --user status qk108`,
-`journalctl --user -u qk108`) and adds a keyboard icon to the top bar. Click it to open the dashboard (it starts the
+This runs the server as a systemd user service whenever you log in (`systemctl --user status keyscreen`,
+`journalctl --user -u keyscreen`) and adds a keyboard icon to the top bar. Click it to open the dashboard (it starts the
 server first if it's stopped). Right-click for Start/Stop server. The dashboard's **Stop server** button and
-`qk108 stop` stop it cleanly, and it stays stopped until started again.
+`keyscreen stop` stop it cleanly, and it stays stopped until started again.
 
 To start it at boot before anyone logs in, also run `loginctl enable-linger`.
 
@@ -112,7 +112,7 @@ To start it at boot before anyone logs in, also run `loginctl enable-linger`.
 
 | Path                            | What's in it                                                       |
 | ------------------------------- | ------------------------------------------------------------------ |
-| `src/`                          | the keyboard server and `qk108` CLI                                |
+| `src/`                          | the keyboard server and `keyscreen` CLI                            |
 | `src/qk108.ts`, `src/hidraw.ts` | USB protocol                                                       |
 | `src/live.ts`                   | live streaming                                                     |
 | `src/service.ts`                | owns the screen and reconnects                                     |
