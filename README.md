@@ -2,6 +2,8 @@
 
 Turns the screen on an Epomaker QK108 into a small live second monitor, from Linux over USB.
 
+![Every mode on the keyboard screen](docs/modes.png)
+
 ## Setup (once)
 
 ```bash
@@ -123,6 +125,7 @@ Erases can only start at block 0, which is why the recycled area sits at the sta
 pnpm lab                         # dashboard on http://localhost:4108: run a test, watch the keyboard, report what you saw
 bun lab/lab.ts list              # list test cases
 bun lab/lab.ts run <id>          # run one in the terminal
+bun lab/screenshots.ts           # redo docs/modes.png (simulated screen, no keyboard)
 ```
 
 Cases live in `lab/cases.ts`. Results go to `lab/results.jsonl`, run logs to `lab/runs/`. Stop the screen server
