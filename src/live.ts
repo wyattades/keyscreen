@@ -9,11 +9,15 @@
 // - When the main area is nearly full it rotates without pausing:
 //     1. prepare a short stream in the next parking block (written in small slices between the
 //        main stream's frames), then switch to it; updates keep flowing there;
-//     2. erase the main area (plain session, no Downloading, ~0.3 s);
+//     2. erase the part of the main area the stream used (plain session, no Downloading);
 //     3. prepare a fresh main stream at block 0 the same way, then switch back.
 //   Each rotation uses up one parking block.
-// - When the parking blocks are used up, it shows the permanent `fallback` frame for ~1-2 s while
-//   it erases main + parking together (the only visible hiccup; rare with a big parking pool).
+// - When the parking blocks are used up, it shows the permanent `fallback` frame while it erases
+//   main + parking together (the only visible hiccup; rare with a big parking pool).
+// - Erases must stay short: the screen can't answer USB while erasing, and an erase longer than
+//   ~5 s made it drop off USB, and once froze it until a power cycle. An erase costs about
+//   ERASE_MS_WRITTEN per block that holds data and ERASE_MS_BLANK per blank one, so rotations erase
+//   only the blocks the stream used, and big erases go in chunks (see eraseUpTo).
 import { sleep } from "./hidraw.ts";
 import { QgifStream } from "./qgif.ts";
 import type { Screen, SlotEntry } from "./qk108.ts";
@@ -25,8 +29,11 @@ const BLOCK = 65536;
 const SLICE = 56 * 16;
 /** "No change" frames written after a new stream's latest frame, before switching to it. */
 const SWITCH_PADDING = 1;
-/** Rough erase time per block (measured ~150 ms), used to pad the stream just enough to cover it. */
-const ERASE_MS_PER_BLOCK = 160;
+/** Measured erase cost per block: ~137 ms if it holds data, ~56 ms if already blank. Rounded up. */
+const ERASE_MS_WRITTEN = 140;
+const ERASE_MS_BLANK = 60;
+/** Longest single erase we send. ~5.5 s erases made the screen drop off USB; ~4 s ones never did. */
+const MAX_ERASE_MS = 3500;
 /** Rotate early, while nothing is changing, once the main area is this full. */
 const IDLE_ROTATE_FILL = 0.5;
 const IDLE_MS = 1000;
@@ -85,6 +92,10 @@ class Stream {
   }
   get left() {
     return this.capacity - this.offset;
+  }
+  /** Blocks this stream has written into (all of them hold data). */
+  get blocksUsed() {
+    return Math.ceil(this.offset / BLOCK);
   }
   entry(): SlotEntry {
     return { start: this.block, length: this.capacity };
@@ -178,9 +189,43 @@ export class LiveScreen {
 
   private async eraseAll(showing: SlotEntry) {
     const n = this.o.streamBlocks + this.o.parkBlocks;
-    const r = await this.s.funcErase(n, [showing], this.o.totalBlocks);
+    const r = await this.eraseUpTo(n, [showing]);
     this.parking = Array.from({ length: this.o.parkBlocks }, (_, i) => this.o.streamBlocks + i);
-    this.o.log(`erased main + parking (${n} blocks) in ${r.eraseMs} ms`);
+    this.o.log(`erased main + parking (${n} blocks) in ${r.ms} ms (${r.chunks} erase${r.chunks > 1 ? "s" : ""})`);
+  }
+
+  /**
+   * Erases blocks 0..n-1 (treating them all as written), in as few erases as keep each one under
+   * MAX_ERASE_MS. The erase always starts at block 0, so each chunk re-erases the already-blank
+   * blocks before it, which is cheap. A status ping between chunks keeps the screen awake.
+   */
+  private async eraseUpTo(n: number, restore: SlotEntry[]) {
+    let done = 0,
+      chunks = 0,
+      ms = 0;
+    while (done < n) {
+      const fresh = Math.max(1, Math.floor((MAX_ERASE_MS - done * ERASE_MS_BLANK) / ERASE_MS_WRITTEN));
+      const upTo = Math.min(n, done + fresh);
+      const r = await this.s.funcErase(upTo, restore, this.o.totalBlocks);
+      ms += r.eraseMs;
+      chunks++;
+      done = upTo;
+      if (done < n) await this.s.status();
+    }
+    return { ms, chunks };
+  }
+
+  /** Estimated time for eraseUpTo(n) when every block holds data. */
+  private eraseEstimateMs(n: number) {
+    let done = 0,
+      ms = 0;
+    while (done < n) {
+      const fresh = Math.max(1, Math.floor((MAX_ERASE_MS - done * ERASE_MS_BLANK) / ERASE_MS_WRITTEN));
+      const upTo = Math.min(n, done + fresh);
+      ms += done * ERASE_MS_BLANK + (upTo - done) * ERASE_MS_WRITTEN + 150;
+      done = upTo;
+    }
+    return ms;
   }
 
   /** Header + keyframe for a new stream, as queued writes. Padding is added at switch time. */
@@ -340,15 +385,17 @@ export class LiveScreen {
         return true;
       }
       case "erase": {
+        // Only the blocks the old main stream wrote hold data; the rest are still blank.
+        const used = Math.max(1, Math.min(this.o.streamBlocks, this.mainStream?.blocksUsed ?? this.o.streamBlocks));
         // Make sure the parking stream has plenty of lead to cover the blocking erase.
-        const eraseMs = ERASE_MS_PER_BLOCK * this.o.streamBlocks + 100;
+        const eraseMs = this.eraseEstimateMs(used) + 300;
         // The normal buffer already covers part of the erase; only pad up to whichever is larger.
         if (this.ahead(this.active) < Math.max(this.o.leadFrames, Math.ceil(eraseMs / this.frameMs) + 1)) {
           await this.feed();
           return true;
         }
-        const r = await this.s.funcErase(this.o.streamBlocks, [this.active.entry()], this.o.totalBlocks);
-        this.o.log(`rotate: main area erased in ${r.eraseMs} ms while the parking stream played`);
+        const r = await this.eraseUpTo(used, [this.active.entry()]);
+        this.o.log(`rotate: erased the ${used} used main blocks in ${r.ms} ms while the parking stream played`);
         this.preparing = new Stream(0, this.o.streamBlocks);
         this.queue.push(...this.prepare(this.preparing, this.last!));
         this.phase = "prepMain";

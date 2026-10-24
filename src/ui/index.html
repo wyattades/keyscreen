@@ -145,6 +145,10 @@
       .panel {
         margin-top: 16px;
       }
+      .banner.alert {
+        margin: 0 0 14px;
+        font-weight: 600;
+      }
       .banner {
         background: var(--warn-bg);
         color: var(--warn);
@@ -248,6 +252,7 @@
         <span class="chip" id="state">connecting…</span>
         <button class="act" id="stop" style="margin-left: auto">Stop server</button>
       </header>
+      <div class="banner alert" id="alert" hidden></div>
       <div class="grid">
         <section class="card">
           <h2>On the keyboard</h2>
@@ -314,8 +319,19 @@
         stopped = false;
         $("#stop").hidden = false;
         const s = status.state;
-        $("#state").textContent = s === "running" ? "live" : s + (status.lastError ? ` — ${status.lastError}` : "");
-        $("#state").className = "chip " + (s === "running" ? "ok" : s === "reconnecting" ? "bad" : "");
+        // Frozen / unplugged: a short chip, and the full instructions in a banner.
+        const alert = s === "frozen" || s === "no keyboard";
+        $("#state").textContent =
+          s === "running"
+            ? "live"
+            : s === "frozen"
+              ? "screen frozen"
+              : alert
+                ? s
+                : s + (status.lastError ? ` — ${status.lastError}` : "");
+        $("#state").className = "chip " + (s === "running" ? "ok" : s === "reconnecting" || alert ? "bad" : "");
+        $("#alert").hidden = !alert;
+        $("#alert").textContent = alert ? status.lastError : "";
         const st = status.stats;
         $("#stats").textContent = st
           ? `${st.contentFrames} frames sent · ${st.rotations} flash recycles · preview is what was sent; the keyboard shows it ~0.4 s later`

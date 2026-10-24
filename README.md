@@ -93,6 +93,8 @@ Other notes:
 - The key ticker reads every key typed on the QK108 when the server can open `/dev/input`. Otherwise it uses keys
   typed into its page.
 - Only one program can drive the screen at a time.
+- If the screen chip freezes (it shows noise and stops responding), the dashboard and the top-bar icon say so. Power-cycle
+  the keyboard: unplug USB, switch it off for 10 s, then reconnect. The server picks up again by itself.
 
 ## Start at login, with a top-bar icon
 

@@ -344,3 +344,23 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   34 s of Downloading), then streamed Clock mode from 10:00:43. The user confirmed **the clock with live seconds on the
   keyboard** **[verified, by eye]**. Modes: draw, key ticker, clock, system monitor, Life, starfield, message, image.
   API: POST /text, POST /image, WS /ws, GET /frame.png. All modes were checked first against `FAKE_SCREEN=1`.
+
+## Long erases drop the screen off USB, and once froze it (2026-10-24)
+
+- With System Monitor on (new content every second), every rotation erased a full 40-block main area. Those erases
+  took **5.3-5.6 s**; yesterday's half-full (idle Clock) erases took ~3.9 s and right after setup 48 blank blocks took
+  2.7 s **[verified, server log]**. Fit: ~56 ms per blank block + ~137 ms per block holding data.
+- Of 37 rotations that day, **6 dropped the screen off USB** right after the erase (`11` failed with EPROTO, once `18`
+  with EIO). Each time the server found the erase's table (allocation 40), didn't recognise it, and redid the whole
+  setup: 33 s of Downloading **[verified, server log]**.
+- The 7th dropout (16:41) **froze the controller**: it re-appeared on USB after `AA E0` but never answered `14`, and the
+  server retried every ~7 s for 2 hours. On screen: coloured noise **[verified, by eye]**.
+- Tried while frozen **[verified, kernel log + by eye]**: `usbreset 1919:1919` (the kernel reset it twice, no answer,
+  then it couldn't even send its device descriptor); the hub's port-1 `disable` off/on (the kernel's own port power
+  cycle didn't help either: the keyboard MCU powers the chip, not the hub port); the screen-shutdown key (`L_SHUT`,
+  top row left of the knob). None helped. After the power cycle the chip re-enumerated by itself (19:02:05) while the
+  keyboard stayed on USB.
+- Fix (`src/live.ts`, `src/layout.ts`, `src/service.ts`): main/parking split 24/24; a rotation erases only the blocks
+  the old main stream used (≤ 24, ~3.3 s); big erases go in steps that each stay under 3.5 s, with a status ping
+  between; a table left by an interrupted erase is recognised (no re-setup); after 3 failed connects the server stops,
+  shows "power-cycle the keyboard", and resumes when the chip or keyboard re-enumerates.

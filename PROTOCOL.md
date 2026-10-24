@@ -91,7 +91,7 @@ Y Y Y Y  M M  W  D D  h h  m m  s s      (W = weekday, Sunday = 0)
 1. Keyboard `E3` with the slot count.
 2. `1B`, then `14`.
 3. Write the slot table, with `allocation` covering every block to be erased.
-4. `18`. Its reply arrives after the erase (~60–160 ms per block).
+4. `18`. Its reply arrives after the erase: ~56 ms per already-blank block, ~137 ms per block that holds data.
 5. `19` writes for each image.
 6. `1A`, then set the clock (§6.1), then `11`.
 
@@ -168,12 +168,18 @@ The controller stops answering (it stays on USB, but sends no replies) after:
 - `19` sent inside a download-mode session (`1B`)
 - `1B` … `1A` repeated many times in quick succession (for example, every 2.5 s)
 - `14` at a nonzero address
+- an `18` erase that runs longer than ~5 s (about 40 blocks that hold data). The controller can't answer USB while
+  erasing; after a long erase it usually drops off USB and comes back when woken (the table is left as the erase
+  wrote it), and once it froze. Erases of up to ~4 s never caused this. Keep each erase short: erase only blocks
+  that hold data, or erase in steps (`allocation` 25, then 39, …), since re-erasing blank blocks is cheap.
 
 It also stops answering when another host sends commands at the same time. If that host closes, the controller
 recovers without a power cycle.
 
 Otherwise it recovers only after a full power cycle: USB unplugged and the keyboard's power switch off for ~10 s.
-The keyboard's battery keeps it powered while only unplugged.
+The keyboard's battery keeps it powered while only unplugged. A frozen controller does not recover from a USB port
+reset (`usbreset`), from switching the hub port's power off and on, or from the keyboard's screen-shutdown key.
+After the power cycle it re-enumerates by itself for ~1 s, even if the keyboard itself stayed on USB.
 
 ## 10. Keyboard-side behavior
 

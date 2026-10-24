@@ -73,7 +73,9 @@ def server_status():
 class Indicator:
     def __init__(self, bus: Gio.DBusConnection):
         self.bus = bus
-        self.running = server_status() is not None
+        st = server_status()
+        self.running = st is not None
+        self.state = st.get("state", "") if st else ""
         self.revision = 1
         self.name = f"org.kde.StatusNotifierItem-{os.getpid()}-1"
         bus.register_object(ITEM_PATH, Gio.DBusNodeInfo.new_for_xml(ITEM_XML).interfaces[0], self.on_item_call, self.on_item_prop, None)
@@ -91,9 +93,10 @@ class Indicator:
 
     # ---- state ----
     def refresh(self):
-        running = server_status() is not None
-        if running != self.running:
-            self.running = running
+        st = server_status()
+        running, state = st is not None, (st.get("state", "") if st else "")
+        if running != self.running or state != self.state:
+            self.running, self.state = running, state
             self.changed()
         return True
 
@@ -104,7 +107,16 @@ class Indicator:
         self.bus.emit_signal(None, ITEM_PATH, "org.kde.StatusNotifierItem", "NewIcon", None)
 
     def tooltip(self):
-        return "Keyboard screen: running" if self.running else "Keyboard screen: stopped (click to start)"
+        if not self.running:
+            return "Keyboard screen: stopped (click to start)"
+        if self.state == "frozen":
+            return "Keyboard screen frozen: power-cycle the keyboard (click for details)"
+        if self.state == "no keyboard":
+            return "Keyboard screen: keyboard not connected by USB"
+        return "Keyboard screen: running"
+
+    def healthy(self):
+        return self.running and self.state not in ("frozen", "no keyboard")
 
     # ---- actions ----
     def open_dashboard(self):
@@ -142,7 +154,7 @@ class Indicator:
             "Id": GLib.Variant("s", "keyscreen"),
             "Title": GLib.Variant("s", "Keyboard screen"),
             "Status": GLib.Variant("s", "Active"),
-            "IconName": GLib.Variant("s", "keyscreen-symbolic" if self.running else "keyscreen-off-symbolic"),
+            "IconName": GLib.Variant("s", "keyscreen-symbolic" if self.healthy() else "keyscreen-off-symbolic"),
             "IconThemePath": GLib.Variant("s", ICONS),
             "ToolTip": GLib.Variant("(sa(iiay)ss)", ("", [], "Keyboard screen", self.tooltip())),
             "ItemIsMenu": GLib.Variant("b", False),

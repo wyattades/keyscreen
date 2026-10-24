@@ -31,14 +31,31 @@ function frameFor(name: PermanentFrame) {
 }
 
 /**
+ * Whether a slot table (as read back) is one we could have left: 1 slot, inside our flash.
+ * Normally the allocation is the layout's total. If the screen dropped off USB in the middle of an
+ * erase, it's the erase's smaller allocation instead; that's still ours, and the permanent frames
+ * past the managed area are untouched, because our erases never reach them.
+ */
+export function isOurTable(t: Uint8Array, layout: Layout): boolean {
+  const count = t[9],
+    allocation = t[10],
+    start = t[11];
+  return count === 1 && allocation >= 1 && allocation <= layout.total && start < layout.total;
+}
+
+/**
  * Returns the layout, uploading it first if this keyboard doesn't have it (or `force`).
- * Detection: our saved layout plus a slot table with 1 slot and the same allocation.
+ * Detection: our saved layout plus a slot table we could have written (see isOurTable).
  */
 export async function ensureLayout(s: Screen, log: (m: string) => void = () => {}, force = false): Promise<Layout> {
   const saved = loadLayout();
   if (saved && !force) {
     const t = await s.readTable();
-    if (t[9] === 1 && t[10] === saved.total) return saved;
+    if (isOurTable(t, saved)) {
+      if (t[10] !== saved.total)
+        log(`found the table from an interrupted erase (allocation ${t[10]}); reusing the layout`);
+      return saved;
+    }
     log("the screen's flash doesn't match the saved layout; setting it up again");
   }
   log(
