@@ -11,9 +11,10 @@
 //   POST /api/shutdown    stop the server cleanly                          keyscreen stop
 //   WS   /ws              JSON mode messages; binary messages = images
 import { join } from "node:path";
-import { allModes, ImageMode, TickerMode, type Mode } from "./modes.ts";
+import { allModes, ImageMode, MessageMode, TickerMode, type Mode } from "./modes.ts";
 import { decodePng, encodePng, fitImage, isPng } from "./png.ts";
 import { ScreenService, SCREEN_H, SCREEN_W } from "./service.ts";
+import { loadImage, loadSettings, saveImage, saveSettings } from "./settings.ts";
 
 export const DEFAULT_PORT = 4110;
 const UI = join(import.meta.dir, "ui", "index.html");
@@ -22,8 +23,10 @@ export interface ServerOptions {
   port?: number;
   /** Use a simulated screen instead of the keyboard (no USB). */
   fake?: boolean;
-  /** Mode to start in. */
+  /** Mode to start in (default: the one selected last time, else clock). */
   mode?: string;
+  /** Save the mode, message and picture to state/ and restore them at start (default: on unless fake). */
+  remember?: boolean;
 }
 
 export function startServer(opts: ServerOptions = {}) {
@@ -40,6 +43,16 @@ export function startServer(opts: ServerOptions = {}) {
   const modes = allModes();
   let mode: Mode | undefined;
   let note = "";
+  // A simulated server (tests, screenshots) must not overwrite what the real one remembers.
+  const remember = opts.remember ?? !opts.fake;
+  const save: typeof saveSettings = (patch) => {
+    if (!remember) return;
+    try {
+      saveSettings(patch);
+    } catch (e) {
+      log(`couldn't save settings: ${(e as Error).message}`);
+    }
+  };
 
   function setMode(id: string) {
     const next = modes.find((m) => m.id === id);
@@ -50,6 +63,7 @@ export function startServer(opts: ServerOptions = {}) {
     mode = next;
     mode.start({ show: (rgba) => service.showRgba(rgba), log, note: (m) => (note = m) });
     log(`mode: ${mode.name}`);
+    save({ mode: id });
   }
 
   function showImage(bytes: Uint8Array) {
@@ -63,6 +77,7 @@ export function startServer(opts: ServerOptions = {}) {
     } else throw new Error("send a PNG, or raw RGBA of 240x136 (or 240x135)");
     setMode("image");
     (mode as ImageMode).setImage(rgba);
+    if (remember) saveImage(rgba, SCREEN_W, SCREEN_H);
   }
 
   function handleMessage(msg: Record<string, unknown>) {
@@ -74,6 +89,7 @@ export function startServer(opts: ServerOptions = {}) {
       setMode("ticker");
       mode!.input?.(msg);
     } else mode?.input?.(msg);
+    if (msg.type === "text" && mode instanceof MessageMode) save({ message: mode.message });
   }
 
   const status = () => ({
@@ -143,7 +159,15 @@ export function startServer(opts: ServerOptions = {}) {
   });
 
   log(`screen server on http://localhost:${port}${opts.fake ? " (simulated screen, no USB)" : ""}`);
-  setMode(opts.mode ?? "clock");
+  // Restore what was showing last time.
+  const saved = remember ? loadSettings() : {};
+  const message = modes.find((m) => m instanceof MessageMode) as MessageMode | undefined;
+  if (saved.message !== undefined) message?.setText(saved.message);
+  const image = modes.find((m) => m instanceof ImageMode) as ImageMode | undefined;
+  const savedImage = remember ? loadImage(SCREEN_W, SCREEN_H) : undefined;
+  if (image && savedImage) image.last = savedImage;
+  const startMode = opts.mode ?? (saved.mode && modes.some((m) => m.id === saved.mode) ? saved.mode : "clock");
+  setMode(startMode);
   void service.run();
 
   let stopping = false;

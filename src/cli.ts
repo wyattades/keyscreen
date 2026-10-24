@@ -11,7 +11,10 @@ const HELP = `keyscreen: control a keyboard's built-in screen (tested on the Epo
 
 Screen server (live modes, web page, API for other programs):
   serve [--fake] [--port N] [--mode ID]   start it (then open http://localhost:${DEFAULT_PORT})
-                                          --fake uses a simulated screen, no keyboard needed
+                                          It starts in the mode used last time (with the same message and
+                                          picture) unless --mode says otherwise. --fake uses a simulated
+                                          screen, no keyboard needed (and doesn't remember anything unless
+                                          --remember).
 
 Commands for the running server:
   status                 what it's doing
@@ -102,7 +105,12 @@ switch (cmd) {
   // ---- server ----
   case "serve": {
     const port = Number(flag("--port") ?? DEFAULT_PORT);
-    startServer({ port, fake: args.includes("--fake"), mode: flag("--mode") });
+    startServer({
+      port,
+      fake: args.includes("--fake"),
+      mode: flag("--mode"),
+      remember: args.includes("--remember") || undefined,
+    });
     break;
   }
   case "status": {

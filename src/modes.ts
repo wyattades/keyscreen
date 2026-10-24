@@ -547,10 +547,14 @@ export class MessageMode implements Mode {
   }
   stop() {}
   input(msg: Record<string, unknown>) {
-    if (msg.type === "text" && typeof msg.text === "string") {
-      this.text = msg.text.slice(0, 200);
-      this.ctx?.show(renderText(this.text));
-    }
+    if (msg.type === "text" && typeof msg.text === "string") this.setText(msg.text);
+  }
+  get message() {
+    return this.text;
+  }
+  setText(text: string) {
+    this.text = text.slice(0, 200);
+    this.ctx?.show(renderText(this.text));
   }
 }
 
