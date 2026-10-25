@@ -63,7 +63,9 @@ function App() {
       <div className="grid">
         <section className="card">
           <h2>On the keyboard</h2>
-          {sleepStrip ? <StripCanvas className="screen" strip={sleepStrip} /> : <LiveCanvas className="screen" />}
+          <div className="bezel">
+            {sleepStrip ? <StripCanvas className="screen" strip={sleepStrip} /> : <LiveCanvas className="screen" />}
+          </div>
           <div className="stats">
             {status.stats &&
               `${status.stats.contentFrames} frames sent · ${status.stats.rotations} flash recycles · the keyboard shows each frame ~0.4 s after it appears here`}
@@ -110,7 +112,7 @@ function Header({ status, down, onStop }: { status: Status | null; down: Down; o
   }
   return (
     <header>
-      <h1>Keyboard screen</h1>
+      <h1>keyscreen</h1>
       <span className={`chip ${cls}`}>{text}</span>
       {status && !down && (
         <button className="act" style={{ marginLeft: "auto" }} onClick={onStop}>
