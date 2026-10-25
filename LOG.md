@@ -398,3 +398,7 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   speed and add "no change" frames until it can't be reached (READAHEAD_FRAMES 4 + write time); default lead 3 -> 5
   frames (3 was always marginal; it held while writes were fast). Simulated at 37 KB/s with fast typing: closest
   content frame 4 frames ahead of playback, ~9 content frames/s. Display delay ~0.4 -> ~0.6 s.
+- Correction: it wasn't stuck. At 15:24 the server restarted on the fix and the screen came back with no power cycle
+  and no USB events **[verified, by eye + logs]**. The controller was faithfully playing broken data; a fresh stream
+  (erase + new QGIF) clears it. The 15:08 restart only seemed not to help because the old code corrupted the new
+  stream again within seconds of Key ticker. So: noise = bad stream data, not a hung controller.

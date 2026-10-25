@@ -46,7 +46,7 @@ const STALL_MS = 10_000;
 /**
  * The screen reads ~0.3 s (3 frames) ahead of what it shows, plus a frame of margin. A frame must be
  * completely in flash before playback gets this close, or the screen decodes a half-written record
- * (see feed); that left it showing noise until a power cycle (2026-10-25).
+ * (see feed); that left it showing noise until a fresh stream replaced it (2026-10-25).
  */
 const READAHEAD_FRAMES = 4;
 
@@ -129,6 +129,12 @@ export class LiveScreen {
   private running = false;
   private loop: Promise<void> | undefined;
   private lastProgressAt = 0;
+  /**
+   * Set when a record finished writing so close to playback that the screen may have read it
+   * half-written. The screen then shows noise for the rest of that stream, so it's replaced with a
+   * fresh one at the next step (an early rotation).
+   */
+  private suspect = false;
   /** Measured write speed (bytes per ms), for timing content writes; starts conservative. */
   private bytesPerMs = 25;
   private watchdog: ReturnType<typeof setInterval> | undefined;
@@ -142,6 +148,8 @@ export class LiveScreen {
     maxContentGapMs: 0,
     /** "No change" frames added so a big frame finishes writing before playback reaches it. */
     leadPadding: 0,
+    /** Fresh streams started because the old one ran too low (see checkCaughtUp). */
+    recoveries: 0,
   };
   private lastContentShowAt = 0;
   private lastPushAt = 0;
@@ -284,6 +292,7 @@ export class LiveScreen {
   }
 
   private async goLive(st: Stream) {
+    this.suspect = false;
     await this.s.switchTable([st.entry()], this.o.totalBlocks, "flip");
     st.t0 = performance.now() + this.o.startDelayMs;
     this.active = st;
@@ -322,6 +331,7 @@ export class LiveScreen {
       const ms = performance.now() - t0;
       // Big writes give a fair speed sample; average them so one hiccup doesn't swing it.
       if (bytes.length > 2000 && ms > 0) this.bytesPerMs = 0.8 * this.bytesPerMs + 0.2 * (bytes.length / ms);
+      this.checkCaughtUp(st, st.written);
       st.offset += bytes.length;
       this.last = rgba;
       st.content = rgba;
@@ -339,11 +349,25 @@ export class LiveScreen {
       if (st.left < 300) throw new Error("stream overflow");
       const bytes = st.enc.empty(this.padFor(st));
       await this.s.writeAt(st.addr, bytes);
+      this.checkCaughtUp(st, st.written);
       st.offset += bytes.length;
       this.stats.emptyFrames++;
     }
     st.written++;
     this.lastProgressAt = performance.now();
+  }
+
+  /**
+   * After writing record `index` of `st`: if playback (plus the screen's ~3-frame read-ahead) had
+   * already reached it, the screen may have decoded it half-written, so mark the stream suspect.
+   */
+  private checkCaughtUp(st: Stream, index: number) {
+    if (st !== this.active || this.suspect) return;
+    const playhead = Math.floor((performance.now() - st.t0) / (this.frameMs * this.o.playbackSlowdown));
+    if (index - playhead < READAHEAD_FRAMES - 1) {
+      this.suspect = true;
+      this.o.log(`stream ran too low (frame ${index}, playback at ${playhead}); starting a fresh stream`);
+    }
   }
 
   /** Writes up to SLICE bytes of queued background work. */
@@ -398,9 +422,13 @@ export class LiveScreen {
         const idle = performance.now() - this.lastPushAt > IDLE_MS && !this.pending;
         const fullEnough = this.active.offset > this.active.capacity * IDLE_ROTATE_FILL;
         const aged = performance.now() - this.active.t0 > this.o.maxStreamAgeMs;
-        const early = idle && (fullEnough || aged) && this.active === this.mainStream && this.parking.length > 0;
+        // A suspect stream is replaced right away (through the fallback if parking is used up).
+        const early =
+          this.active === this.mainStream &&
+          (this.suspect || (idle && (fullEnough || aged) && this.parking.length > 0));
         if (this.active.left >= reserve && !early) return false;
-        if (early) this.o.log(`rotate: early, while idle (${aged ? "stream aged" : "half full"})`);
+        if (early && this.suspect) this.stats.recoveries++;
+        else if (early) this.o.log(`rotate: early, while idle (${aged ? "stream aged" : "half full"})`);
         const block = this.parking.shift();
         if (block === undefined) {
           await this.fallbackRotate();
