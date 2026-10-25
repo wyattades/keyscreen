@@ -27,8 +27,7 @@ export const LIVE_W = 240,
 const BLOCK = 65536;
 /** Background writes go out in slices this big, so the playing stream is never starved for long. */
 const SLICE = 56 * 16;
-/** "No change" frames written after a new stream's latest frame, before switching to it. */
-const SWITCH_PADDING = 1;
+
 /** Measured erase cost per block: ~137 ms if it holds data, ~56 ms if already blank. Rounded up. */
 const ERASE_MS_WRITTEN = 140;
 const ERASE_MS_BLANK = 60;
@@ -49,6 +48,12 @@ const STALL_MS = 10_000;
  * (see feed); that left it showing noise until a fresh stream replaced it (2026-10-25).
  */
 const READAHEAD_FRAMES = 4;
+/**
+ * "No change" frames written after a new stream's latest frame, before switching to it. The screen
+ * starts reading ahead as soon as it switches, so a new stream needs this much lead from the start.
+ * (It used to be 1, which left the read-ahead running into unwritten flash on every switch.)
+ */
+const SWITCH_PADDING = READAHEAD_FRAMES;
 
 export interface LiveOptions {
   streamBlocks: number;

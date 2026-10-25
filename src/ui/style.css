@@ -308,6 +308,10 @@ button.primary {
   box-shadow: 2px 2px 0 var(--shadow);
   cursor: pointer;
 }
+/* Black is the eraser; a checkerboard so it reads as "nothing" against the dark page. */
+.swatch.eraser {
+  background: repeating-conic-gradient(#000 0 25%, #3a3852 0 50%) 0 0 / 10px 10px !important;
+}
 .swatch.on {
   border-color: var(--text);
   outline: 2px solid var(--accent);

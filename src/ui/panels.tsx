@@ -46,6 +46,7 @@ const COLORS: [number, number, number][] = [
   [60, 220, 230],
   [80, 130, 255],
   [230, 90, 255],
+  [0, 0, 0], // the background: an eraser
 ];
 
 /** Brush controls; you draw right on the "On the keyboard" preview. */
@@ -57,7 +58,8 @@ function DrawPanel({ brush, setBrush }: PanelProps) {
         {COLORS.map((c) => (
           <span
             key={c.join()}
-            className={`swatch${c === brush.color ? " on" : ""}`}
+            className={`swatch${c === brush.color ? " on" : ""}${c.every((v) => v === 0) ? " eraser" : ""}`}
+            title={c.every((v) => v === 0) ? "Eraser (black)" : undefined}
             style={{ background: `rgb(${c})` }}
             onClick={() => setBrush({ ...brush, color: c })}
           />
