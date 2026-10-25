@@ -39,6 +39,8 @@ export class ScreenService {
   /** The picture currently being shown (or about to be), RGBA 240x136. */
   current: Uint8Array = renderText("");
   updatedAt = 0;
+  /** Called with every picture handed to the screen (for live previews). */
+  onShow: ((rgba: Uint8Array) => void) | undefined;
   private live: LiveScreen | undefined;
   /** What to show while asleep (undefined = awake). `gif` undefined = the stored blank frame. */
   private sleepTarget: { gif?: Uint8Array; first: Uint8Array; name: string } | undefined;
@@ -72,6 +74,7 @@ export class ScreenService {
       throw new Error(`expected ${SCREEN_W}x${SCREEN_H} RGBA (${SCREEN_W * SCREEN_H * 4} bytes), got ${rgba.length}`);
     this.current = rgba;
     this.updatedAt = Date.now();
+    this.onShow?.(rgba);
     this.live?.push(rgba);
   }
 

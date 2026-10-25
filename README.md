@@ -134,20 +134,21 @@ To start it at boot before anyone logs in, also run `loginctl enable-linger`.
 
 ## Layout
 
-| Path                            | What's in it                                                       |
-| ------------------------------- | ------------------------------------------------------------------ |
-| `src/`                          | the keyboard server and `keyscreen` CLI                            |
-| `src/qk108.ts`, `src/hidraw.ts` | USB protocol                                                       |
-| `src/live.ts`                   | live streaming                                                     |
-| `src/service.ts`                | owns the screen and reconnects                                     |
-| `src/server.ts`, `src/ui/`      | HTTP/WebSocket server and its page                                 |
-| `src/modes.ts`                  | the modes                                                          |
-| `src/cli.ts`                    | the CLI                                                            |
-| `desktop/`                      | startup service and top-bar indicator                              |
-| `lab/`                          | test lab: on-device experiments and the dashboard for running them |
-| `state/`                        | runtime state (the flash layout)                                   |
-| `PROTOCOL.md`                   | the screen's USB API and behavior                                  |
-| `LOG.md`                        | how we got there, including failed experiments                     |
+| Path                            | What's in it                                                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/`                          | the keyboard server and `keyscreen` CLI                                                                       |
+| `src/qk108.ts`, `src/hidraw.ts` | USB protocol                                                                                                  |
+| `src/live.ts`                   | live streaming                                                                                                |
+| `src/service.ts`                | owns the screen and reconnects                                                                                |
+| `src/server.ts`                 | HTTP/WebSocket server                                                                                         |
+| `src/ui/`                       | the dashboard: React (`app.tsx`, `panels.tsx`, `sleep.tsx`) and `style.css`, bundled by Bun from `index.html` |
+| `src/modes.ts`                  | the modes                                                                                                     |
+| `src/cli.ts`                    | the CLI                                                                                                       |
+| `desktop/`                      | startup service and top-bar indicator                                                                         |
+| `lab/`                          | test lab: on-device experiments and the dashboard for running them                                            |
+| `state/`                        | runtime state (the flash layout)                                                                              |
+| `PROTOCOL.md`                   | the screen's USB API and behavior                                                                             |
+| `LOG.md`                        | how we got there, including failed experiments                                                                |
 
 ## How the live display works
 
@@ -175,6 +176,10 @@ Cases live in `lab/cases.ts`. Results go to `lab/results.jsonl`, run logs to `la
 before running tests.
 
 ## Development
+
+The dashboard is served with Bun's HTML imports: `src/server.ts` imports `src/ui/index.html`, and Bun bundles the
+`.tsx` and `.css` it references. `keyscreen serve --dev` re-bundles on every page load and hot-reloads while you edit
+`src/ui/`. Live frames reach the page over the WebSocket as raw RGBA, as they go to the keyboard.
 
 ```bash
 pnpm typecheck

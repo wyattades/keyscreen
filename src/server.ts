@@ -14,7 +14,6 @@
 //   GET  /api/sleep/preview.png?mode=ID  frames side by side (x-frames, x-fps headers)
 //   POST /api/shutdown    stop the server cleanly                          keyscreen stop
 //   WS   /ws              JSON mode messages; binary messages = images
-import { join } from "node:path";
 import { allModes, ImageMode, MessageMode, TickerMode, type Mode } from "./modes.ts";
 import { decodePng, encodePng, fitImage, isPng } from "./png.ts";
 import { ScreenService, SCREEN_H, SCREEN_W } from "./service.ts";
@@ -24,7 +23,8 @@ import { loadImage, loadSettings, loadSleepUpload, saveImage, saveSettings, save
 import { builtinSleep, decodeCustom, DEFAULT_SLEEP, encodeSleep, SLEEP_MODES, type SleepFrames } from "./sleep.ts";
 
 export const DEFAULT_PORT = 4110;
-const UI = join(import.meta.dir, "ui", "index.html");
+// The dashboard: Bun bundles the .tsx and .css that index.html references (Bun fullstack).
+import dashboard from "./ui/index.html";
 
 export interface ServerOptions {
   port?: number;
@@ -32,6 +32,8 @@ export interface ServerOptions {
   fake?: boolean;
   /** Mode to start in (default: the one selected last time, else clock). */
   mode?: string;
+  /** Bundle the dashboard on every load, with hot reload (for working on src/ui). */
+  dev?: boolean;
   /** Save the mode, message and picture to state/ and restore them at start (default: on unless fake). */
   remember?: boolean;
 }
@@ -209,11 +211,13 @@ export function startServer(opts: ServerOptions = {}) {
   const server = Bun.serve({
     port,
     idleTimeout: 60,
+    // --dev: re-bundle on every load and hot-reload the page while editing src/ui.
+    development: opts.dev ? { hmr: true, console: true } : false,
+    routes: { "/": dashboard },
     async fetch(req, srv) {
       const url = new URL(req.url);
       try {
         if (url.pathname === "/ws" && srv.upgrade(req)) return undefined;
-        if (url.pathname === "/" && req.method === "GET") return new Response(Bun.file(UI));
         if (url.pathname === "/frame.png") {
           return new Response(new Uint8Array(encodePng(service.preview, SCREEN_W, SCREEN_H)), {
             headers: { "content-type": "image/png", "cache-control": "no-store" },
@@ -259,6 +263,11 @@ export function startServer(opts: ServerOptions = {}) {
       }
     },
     websocket: {
+      // Every page gets each frame as it goes to the keyboard: raw RGBA, 240x136.
+      open(ws) {
+        ws.subscribe("frames");
+        ws.send(service.preview);
+      },
       message(ws, data) {
         try {
           if (typeof data === "string") handleMessage(JSON.parse(data));
@@ -269,6 +278,25 @@ export function startServer(opts: ServerOptions = {}) {
       },
     },
   });
+
+  // Live preview: publish each frame to the pages, at most every 50 ms (the latest one wins).
+  let lastPublish = 0,
+    pendingFrame: Uint8Array | undefined,
+    publishTimer: ReturnType<typeof setTimeout> | undefined;
+  const publish = () => {
+    publishTimer = undefined;
+    if (!pendingFrame) return;
+    server.publish("frames", pendingFrame);
+    pendingFrame = undefined;
+    lastPublish = performance.now();
+  };
+  service.onShow = (rgba) => {
+    pendingFrame = rgba;
+    if (publishTimer) return;
+    const wait = 50 - (performance.now() - lastPublish);
+    if (wait <= 0) publish();
+    else publishTimer = setTimeout(publish, wait);
+  };
 
   log(`screen server on http://localhost:${port}${opts.fake ? " (simulated screen, no USB)" : ""}`);
   // Restore what was showing last time.

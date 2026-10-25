@@ -116,6 +116,7 @@ switch (cmd) {
       fake: args.includes("--fake"),
       mode: flag("--mode"),
       remember: args.includes("--remember") || undefined,
+      dev: args.includes("--dev"),
     });
     break;
   }

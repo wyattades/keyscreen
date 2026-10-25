@@ -9,7 +9,9 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
     "types": ["node", "bun"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "lib": ["es2023", "dom", "dom.iterable"]
   },
   "include": ["src", "lab"]
 }
