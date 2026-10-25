@@ -33,11 +33,17 @@ export interface Input {
   stop(): void;
 }
 
-/** Starts listening. Never throws: whatever isn't available shows up in `source` and `problem`. */
+/** How often to try again to open devices that couldn't be opened (e.g. right at login, before the
+ * session is active and the udev rule has granted access, or while the keyboard is unplugged). */
+const RETRY_MS = 3000;
+
+/**
+ * Starts listening. Never throws: whatever isn't available shows up in `source` and `problem`, and
+ * is retried every RETRY_MS until it works or stop() is called.
+ */
 export function watchInput(h: InputHandlers): Input {
   const stops: (() => void)[] = [];
   const tracker = new PointerTracker();
-  const problems: string[] = [];
   let stopped = false;
   const input: Input = {
     pointer: tracker,
@@ -49,15 +55,19 @@ export function watchInput(h: InputHandlers): Input {
     },
   };
 
-  if (h.key)
-    try {
-      stops.push(onTypedChar(h.key));
-      input.source.keys = "evdev";
-    } catch (e) {
-      problems.push(`keys: ${(e as Error).message}`);
-    }
+  const problems: Record<string, string> = {};
+  const updateProblem = () => (input.problem = Object.values(problems).join("; "));
 
-  if (h.button || h.wheel || h.pointerMoved)
+  const openKeys = () => {
+    try {
+      stops.push(onTypedChar(h.key!));
+      input.source.keys = "evdev";
+      delete problems.keys;
+    } catch (e) {
+      problems.keys = `keys: ${(e as Error).message}`;
+    }
+  };
+  const openMouse = () => {
     try {
       stops.push(
         onMouse({
@@ -71,28 +81,44 @@ export function watchInput(h: InputHandlers): Input {
         }),
       );
       input.source.mouse = "evdev";
-      input.source.pointer = "estimate";
+      if (input.source.pointer === "none") input.source.pointer = "estimate";
+      delete problems.mouse;
     } catch (e) {
-      problems.push(`mouse: ${(e as Error).message}`);
+      problems.mouse = `mouse: ${(e as Error).message}`;
     }
+  };
+  const wantMouse = !!(h.button || h.wheel || h.pointerMoved);
+  if (h.key) openKeys();
+  if (wantMouse) openMouse();
+  updateProblem();
+  // Retry whatever didn't open.
+  const retry = setInterval(() => {
+    if (h.key && input.source.keys === "none") openKeys();
+    if (wantMouse && input.source.mouse === "none") openMouse();
+    updateProblem();
+  }, RETRY_MS);
+  stops.push(() => clearInterval(retry));
 
   // The exact pointer from GNOME, if the extension is running; it takes over from the estimate.
+  // GNOME may not be up yet right after login, so keep looking.
   if (h.pointerMoved) {
-    let first = true;
-    void watchShellPointer((p) => {
-      tracker.x = p.x;
-      tracker.y = p.y;
-      // The first report is just where it is now, not a movement.
-      if (!first) h.pointerMoved?.();
-      first = false;
-    }).then((stop) => {
-      if (!stop) return;
-      if (stopped) return stop();
-      stops.push(stop);
-      input.source.pointer = "gnome";
-    });
+    const tryGnome = () => {
+      let first = true;
+      void watchShellPointer((p) => {
+        tracker.x = p.x;
+        tracker.y = p.y;
+        // The first report is just where it is now, not a movement.
+        if (!first) h.pointerMoved?.();
+        first = false;
+      }).then((stop) => {
+        if (stopped) return stop?.();
+        if (!stop) return void setTimeout(tryGnome, RETRY_MS * 3);
+        stops.push(stop);
+        input.source.pointer = "gnome";
+      });
+    };
+    tryGnome();
   }
 
-  input.problem = problems.join("; ");
   return input;
 }

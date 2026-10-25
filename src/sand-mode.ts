@@ -64,8 +64,6 @@ export class SandMode implements Mode {
       },
     });
     this.inputs = input;
-    if (input.problem)
-      ctx.note(`Can't read the mouse or keyboard (${input.problem}). Move over the preview to pour instead.`);
     this.flash(MATERIALS[this.material].name);
     this.timer = setInterval(() => this.tick(ctx), FRAME_MS);
   }

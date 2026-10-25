@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { addCoverage, Canvas, H, W, hsv, type RGB } from "./canvas.ts";
 import { GLYPH_H, glyph } from "./font.ts";
-import { watchInput } from "./input.ts";
+import { watchInput, type Input } from "./input.ts";
 import { SandMode } from "./sand-mode.ts";
 import { renderText } from "./textframe.ts";
 
@@ -127,7 +127,10 @@ export class TickerMode implements Mode {
   private ctx?: ModeContext;
   private lastKeyAt = 0;
   /** Where key presses come from: read straight from the keyboard, or forwarded by the page. */
-  keySource: "keyboard" | "page" = "page";
+  get keySource(): "keyboard" | "page" {
+    return this.inputs?.source.keys === "evdev" ? "keyboard" : "page";
+  }
+  private inputs: Input | undefined;
   static readonly DOT = 6; // one font pixel = 6x6 screen pixels (a 4x4 lit dot + gap)
   static readonly COLS = W / TickerMode.DOT; // 30 font columns visible
   static readonly TOP = Math.round((H - GLYPH_H * TickerMode.DOT) / 2);
@@ -135,13 +138,8 @@ export class TickerMode implements Mode {
   start(ctx: ModeContext) {
     this.ctx = ctx;
     const input = watchInput({ key: (ch) => this.type(ch) });
+    this.inputs = input;
     this.stopKeys = () => input.stop();
-    this.keySource = input.source.keys === "evdev" ? "keyboard" : "page";
-    ctx.note(
-      input.source.keys === "evdev"
-        ? "Capturing every key typed on the QK108, in any app."
-        : `Can't read the keyboard directly (${input.problem}). Typing into this page works instead.`,
-    );
     this.timer = setInterval(() => this.frame(), 100);
   }
   stop() {

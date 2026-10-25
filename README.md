@@ -26,14 +26,18 @@ working, please open an issue.
 ## Setup (once)
 
 ```bash
-sudo cp 70-keyscreen.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input "$USER"   # only for capturing keystrokes in any app; log out and back in afterwards
 pnpm install
+desktop/install.sh   # asks for sudo once (udev rule), then sets up the service, indicator and GNOME extension
 ```
 
-The udev rule gives your user the keyboard's vendor channels and the screen controller. The plain keyboard
-interface is write-only (for the lock-light icons), so the rule alone can't be used to read keystrokes. Reading every
-keystroke needs the `input` group.
+The udev rule (`70-keyscreen.rules`) gives the user logged in at the machine:
+
+- the keyboard's vendor channels and the screen controller
+- read access to the QK108's key devices and to mice, for the key ticker and Sand mode
+
+No `input` group needed (that one opens every input device to every program you run). Programs you run can still read
+what's typed on the QK108, which the key ticker needs. If you added yourself to `input` earlier, you can leave it:
+`sudo gpasswd -d $USER input`, then log out and back in.
 
 Bun runs the TypeScript directly; there's no build step. Close Epomaker Hub / image.rdmctmzt.com tabs first: they
 grab the screen.
@@ -110,7 +114,7 @@ command exits. These commands talk to the keyboard directly, so stop the server 
 Other notes:
 
 - `keyscreen serve --fake --port 4111` runs the server against a simulated screen, without the keyboard.
-- The key ticker reads every key typed on the QK108 when the server can open `/dev/input`. Otherwise it uses keys
+- The key ticker reads every key typed on the QK108 through the udev rule. If it can't (rule not installed), it uses keys
   typed into its page.
 - Only one program can drive the screen at a time.
 - The server remembers the selected mode, message, picture and sleep animation (in `state/`) and comes back with them
