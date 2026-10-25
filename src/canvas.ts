@@ -59,6 +59,48 @@ export class Canvas {
     for (let i = 0; i <= n; i++) this.disc(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, r, c);
   }
 
+  /**
+   * Antialiased thick line pieces with round ends, like a browser canvas stroke of width
+   * 2 * halfWidth: each pixel gets the colour blended in by how much of it the stroke covers.
+   * All pieces are measured together, so where they overlap (joints) the edge isn't blended twice.
+   */
+  strokeSmooth(segs: number[][], halfWidth: number, c: RGB) {
+    if (!segs.length) return;
+    let minX = W,
+      minY = H,
+      maxX = 0,
+      maxY = 0;
+    for (const [x0, y0, x1, y1] of segs) {
+      minX = Math.min(minX, x0, x1);
+      maxX = Math.max(maxX, x0, x1);
+      minY = Math.min(minY, y0, y1);
+      maxY = Math.max(maxY, y0, y1);
+    }
+    const pad = halfWidth + 1;
+    const xa = Math.max(0, Math.floor(minX - pad)),
+      xb = Math.min(W - 1, Math.ceil(maxX + pad));
+    const ya = Math.max(0, Math.floor(minY - pad)),
+      yb = Math.min(H - 1, Math.ceil(maxY + pad));
+    for (let py = ya; py <= yb; py++)
+      for (let px = xa; px <= xb; px++) {
+        // Distance from the pixel's centre to the nearest piece.
+        const cx = px + 0.5,
+          cy = py + 0.5;
+        let d = Infinity;
+        for (const [x0, y0, x1, y1] of segs) {
+          const dx = x1 - x0,
+            dy = y1 - y0;
+          const len2 = dx * dx + dy * dy;
+          const t = len2 ? Math.max(0, Math.min(1, ((cx - x0) * dx + (cy - y0) * dy) / len2)) : 0;
+          d = Math.min(d, Math.hypot(cx - (x0 + t * dx), cy - (y0 + t * dy)));
+        }
+        const a = Math.max(0, Math.min(1, halfWidth + 0.5 - d));
+        if (!a) continue;
+        const o = (py * W + px) * 4;
+        for (let k = 0; k < 3; k++) this.rgba[o + k] = Math.round(this.rgba[o + k] * (1 - a) + c[k] * a);
+      }
+  }
+
   /** Pixel-font text. `align` positions it around x. Returns its width. */
   text(s: string, x: number, y: number, scale: number, c: RGB, align: "left" | "center" | "right" = "left") {
     const w = textWidth(s, scale);

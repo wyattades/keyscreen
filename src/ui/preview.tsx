@@ -49,6 +49,7 @@ function Ink({ brush }: { brush: Brush }) {
     pending.current = [];
   };
   const stroke = (a: number[], b: number[]) => {
+    // Smooth like the server's lines (src/modes.ts DrawMode): width 2 * size + 1, round ends.
     const g = ref.current!.getContext("2d")!;
     g.strokeStyle = `rgb(${brush.color})`;
     g.lineWidth = brush.size * 2 + 1;
@@ -57,7 +58,7 @@ function Ink({ brush }: { brush: Brush }) {
     g.moveTo(a[0], a[1]);
     g.lineTo(b[0], b[1]);
     g.stroke();
-    pending.current.push([...a, ...b].map(Math.round));
+    pending.current.push([...a, ...b].map((v) => Math.round(v * 4) / 4));
     flush.current ??= setTimeout(send, 30);
     // Clear the ink once the server's frames have caught up with the last stroke.
     clearTimeout(fade.current);

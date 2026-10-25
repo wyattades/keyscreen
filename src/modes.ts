@@ -59,7 +59,9 @@ export class DrawMode implements Mode {
     } else if (msg.type === "draw") {
       const color = (msg.color as RGB) ?? [255, 255, 255];
       const r = Math.max(0, Math.min(10, Number(msg.size ?? 2)));
-      for (const [x0, y0, x1, y1] of (msg.segs as number[][]) ?? []) this.c.line(x0, y0, x1, y1, r, color);
+      // Smooth, matching the page's stroke (width 2 * size + 1). The edges are blends of the line
+      // and what's under it, which the screen's 4x4 tiles (two colours plus blends) keep well.
+      this.c.strokeSmooth((msg.segs as number[][]) ?? [], r + 0.5, color);
       this.dirty = true;
     }
   }
