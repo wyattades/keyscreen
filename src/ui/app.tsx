@@ -81,7 +81,6 @@ function App() {
               </button>
             ))}
           </div>
-          {status.note && <div className="banner">{status.note}</div>}
         </section>
       </div>
       <ModePanel key={status.mode} status={status} brush={brush} setBrush={setBrush} />
