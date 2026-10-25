@@ -6,6 +6,7 @@ import { GifReader } from "omggif";
 import { Canvas, H, W, type RGB } from "./canvas.ts";
 import { decodePng, fitImage, isPng } from "./png.ts";
 import { encodeQgif } from "./qgif.ts";
+import { M, SandWorld } from "./sand.ts";
 
 export interface SleepAnimation {
   id: string;
@@ -15,14 +16,14 @@ export interface SleepAnimation {
 
 /** "off" keeps the live mode running while locked; "dark" shows the stored blank frame. */
 export const SLEEP_MODES: SleepAnimation[] = [
-  { id: "hourglass", name: "Hourglass", blurb: "Sand trickles down, then the glass flips over." },
+  { id: "sand", name: "Falling sand", blurb: "Sand pours down until half the screen is full, then drains away." },
   { id: "zzz", name: "Zzz", blurb: "Sleepy Zs drifting up." },
   { id: "night", name: "Night sky", blurb: "A crescent moon and twinkling stars." },
   { id: "dark", name: "Dark", blurb: "A black screen." },
   { id: "custom", name: "Your picture", blurb: "An uploaded PNG or animated GIF." },
   { id: "off", name: "Don't sleep", blurb: "Keep showing the live mode while the computer is locked." },
 ];
-export const DEFAULT_SLEEP = "hourglass";
+export const DEFAULT_SLEEP = "sand";
 
 export interface SleepFrames {
   frames: Uint8Array[];
@@ -31,7 +32,7 @@ export interface SleepFrames {
 
 /** Frames for a built-in animation ("dark" and "off" have none). */
 export function builtinSleep(id: string): SleepFrames | undefined {
-  if (id === "hourglass") return { frames: hourglass(), fps: 10 };
+  if (id === "sand") return { frames: fallingSand(), fps: 10 };
   if (id === "zzz") return { frames: zzz(), fps: 10 };
   if (id === "night") return { frames: night(), fps: 6 };
   return undefined;
@@ -81,78 +82,48 @@ export function decodeCustomFile(path: string): SleepFrames {
 
 const dim = (c: RGB, k: number): RGB => [Math.round(c[0] * k), Math.round(c[1] * k), Math.round(c[2] * k)];
 
-/** Sand runs from the top bulb to the bottom one, then the glass squashes flat and flips. */
-function hourglass(): Uint8Array[] {
-  const cx = W / 2,
-    top = 14,
-    neck = 68,
-    bottom = 122,
-    half = 34; // half-width of the bulbs at their widest
-  const glass: RGB = [70, 90, 120],
-    sand: RGB = [200, 150, 70],
-    grain: RGB = [235, 190, 110];
-  // Half-width of the glass at row y (0 at the neck).
-  const widthAt = (y: number) =>
-    y < neck ? (half * (neck - y)) / (neck - top) : (half * (y - neck)) / (bottom - neck);
-
-  const draw = (p: number) => {
-    // p: 0 = all sand on top, 1 = all at the bottom.
-    const c = new Canvas([4, 5, 9]);
-    // Top bulb: sand surface sinks from near the top to the neck.
-    const topLevel = top + 8 + (neck - top - 8) * p;
-    for (let y = Math.ceil(topLevel); y < neck; y++) {
-      const w = Math.floor(widthAt(y)) - 2;
-      if (w > 0) c.rect(cx - w, y, w * 2, 1, sand);
+/**
+ * Three streams wander along the top and pour sand until the bottom half is full; then the floor
+ * opens and it all drains out, so the loop ends empty, the way it started. Seeded, so it's the
+ * same animation every time.
+ */
+function fallingSand(): Uint8Array[] {
+  const world = new SandWorld(W, H);
+  const realRandom = Math.random;
+  let seed = 11;
+  Math.random = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  try {
+    const frames: Uint8Array[] = [];
+    const half = (world.w * world.h) / 2;
+    const frame = () => {
+      const rgba = new Uint8Array(W * H * 4);
+      world.render(rgba, W, [4, 5, 9], 0.75);
+      frames.push(rgba);
+    };
+    // Pour from four slowly wandering streams; three steps per frame so grains fall fast.
+    for (let f = 0; world.count() < half && f < 300; f++) {
+      for (let k = 0; k < 4; k++) {
+        const x = Math.round(world.w * (0.5 + 0.4 * Math.sin(f / (40 + k * 13) + k * 1.7)));
+        world.pour(x, 2, 2, M.Sand, 0.55);
+      }
+      for (let s = 0; s < 3; s++) world.step();
+      frame();
     }
-    // Bottom bulb: a mound that grows from the floor.
-    const fill = p * (bottom - neck - 10);
-    for (let y = bottom - 1; y > neck; y--) {
-      const w = Math.floor(widthAt(y)) - 2;
-      const depth = bottom - 1 - y;
-      // Mound: full width up to `fill`, then a cone above it.
-      const cone = Math.max(0, w - (depth - fill) * 2);
-      const ww = depth <= fill ? w : Math.min(w, cone);
-      if (ww > 0 && fill > 0) c.rect(cx - ww, y, ww * 2, 1, sand);
+    // Let it settle, rest, then drain through the floor.
+    for (let f = 0; f < 10; f++) {
+      for (let s = 0; s < 3; s++) world.step();
+      frame();
     }
-    // Falling stream from the neck to the mound (dotted, moving).
-    if (p < 1) {
-      const moundTop = bottom - 1 - fill - Math.max(0, (half - 2) / 2);
-      for (let y = neck; y < moundTop; y += 2) c.rect(cx - 1, y + ((p * 400) % 2), 2, 1, grain);
+    for (let f = 0; f < 10; f++) frames.push(frames[frames.length - 1]);
+    for (let f = 0; world.count() > 0 && f < 200; f++) {
+      for (let s = 0; s < 3; s++) world.step(true);
+      frame();
     }
-    // Glass outline, caps and frame.
-    c.line(cx - half - 2, top, cx - 3, neck - 1, 1, glass);
-    c.line(cx + half + 2, top, cx + 3, neck - 1, 1, glass);
-    c.line(cx - 3, neck + 1, cx - half - 2, bottom, 1, glass);
-    c.line(cx + 3, neck + 1, cx + half + 2, bottom, 1, glass);
-    c.rect(cx - half - 10, top - 6, (half + 10) * 2, 4, dim(sand, 0.5));
-    c.rect(cx - half - 10, bottom + 2, (half + 10) * 2, 4, dim(sand, 0.5));
-    return c.snapshot();
-  };
-
-  // Squash vertically around the centre (k = 1 normal, 0 flat), optionally upside down.
-  const squash = (rgba: Uint8Array, k: number, flip: boolean) => {
-    const out = new Canvas([4, 5, 9]).snapshot();
-    const cy = H / 2;
-    if (k <= 0.02) return out;
-    for (let y = 0; y < H; y++) {
-      let sy = Math.round(cy + (y - cy) / k);
-      if (sy < 0 || sy >= H) continue;
-      if (flip) sy = H - 1 - sy;
-      out.set(rgba.subarray(sy * W * 4, (sy + 1) * W * 4), y * W * 4);
-    }
-    return out;
-  };
-
-  const frames: Uint8Array[] = [];
-  const steps = 56;
-  for (let i = 0; i <= steps; i++) frames.push(draw(i / steps));
-  const end = draw(1);
-  for (let i = 0; i < 6; i++) frames.push(end); // rest
-  // The full bottom, flipped, is the start again: squash the end flat, then open the start out.
-  for (const k of [0.75, 0.45, 0.15]) frames.push(squash(end, k, false));
-  for (const k of [0.15, 0.45, 0.75]) frames.push(squash(draw(0), k, false));
-  for (let i = 0; i < 4; i++) frames.push(draw(0));
-  return frames;
+    for (let f = 0; f < 5; f++) frame();
+    return frames;
+  } finally {
+    Math.random = realRandom;
+  }
 }
 
 /** Three Zs drift up and to the right, growing and fading, one after another. */

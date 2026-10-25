@@ -29,7 +29,7 @@ Commands for the running server:
 
 While the computer is locked, the keyboard plays a stored animation (and nothing goes over USB):
   sleep                  show the sleep animation and the choices
-  sleep <id>             choose it (hourglass, zzz, night, dark, custom, off = keep the live mode)
+  sleep <id>             choose it (sand, zzz, night, dark, custom, off = keep the live mode)
   sleep upload <file>    use your own PNG or animated GIF
   sleep try | wake       sleep now to see it on the keyboard, then wake up
 

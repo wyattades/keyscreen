@@ -68,14 +68,14 @@ When the computer's screen locks or blanks (GNOME), the keyboard goes to sleep: 
 in the screen's flash, the keyboard loops it by itself, and nothing goes over USB until you unlock. Choose it on the
 dashboard or with `keyscreen sleep <id>`:
 
-| Sleep animation       | What it shows                                                  |
-| --------------------- | -------------------------------------------------------------- |
-| `hourglass` (default) | sand trickles down, then the glass flips over                  |
-| `zzz`                 | sleepy Zs drifting up                                          |
-| `night`               | a crescent moon and twinkling stars                            |
-| `dark`                | a black screen                                                 |
-| `custom`              | your own PNG or animated GIF (`keyscreen sleep upload <file>`) |
-| `off`                 | don't sleep: keep the live mode                                |
+| Sleep animation  | What it shows                                                   |
+| ---------------- | --------------------------------------------------------------- |
+| `sand` (default) | sand pours down until half the screen is full, then drains away |
+| `zzz`            | sleepy Zs drifting up                                           |
+| `night`          | a crescent moon and twinkling stars                             |
+| `dark`           | a black screen                                                  |
+| `custom`         | your own PNG or animated GIF (`keyscreen sleep upload <file>`)  |
+| `off`            | don't sleep: keep the live mode                                 |
 
 `keyscreen sleep try` puts it to sleep now so you can see it; `keyscreen sleep wake` wakes it.
 
