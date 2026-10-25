@@ -62,17 +62,36 @@ keyboard shows it on its GIF page: press **Fn + Right Shift** to get there. Mode
 | `message` | a typed message, auto-sized                                                         |
 | `image`   | an uploaded PNG, scaled to fit                                                      |
 
+### While the computer is locked
+
+When the computer's screen locks or blanks (GNOME), the keyboard goes to sleep: the server stores a short animation
+in the screen's flash, the keyboard loops it by itself, and nothing goes over USB until you unlock. Choose it on the
+dashboard or with `keyscreen sleep <id>`:
+
+| Sleep animation       | What it shows                                                  |
+| --------------------- | -------------------------------------------------------------- |
+| `hourglass` (default) | sand trickles down, then the glass flips over                  |
+| `zzz`                 | sleepy Zs drifting up                                          |
+| `night`               | a crescent moon and twinkling stars                            |
+| `dark`                | a black screen                                                 |
+| `custom`              | your own PNG or animated GIF (`keyscreen sleep upload <file>`) |
+| `off`                 | don't sleep: keep the live mode                                |
+
+`keyscreen sleep try` puts it to sleep now so you can see it; `keyscreen sleep wake` wakes it.
+
 Every server action has a CLI command:
 
-| Server               | CLI                                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------- |
-| `GET /api/status`    | `keyscreen status`, `keyscreen modes`                                                               |
-| `POST /api/mode`     | `keyscreen mode <id>`                                                                               |
-| `POST /api/input`    | `keyscreen key <letters>`, `keyscreen draw x0,y0 x1,y1`, `keyscreen draw clear`, `keyscreen reseed` |
-| `POST /text`         | `keyscreen text <message>`                                                                          |
-| `POST /image`        | `keyscreen image <file.png>`                                                                        |
-| `GET /frame.png`     | `keyscreen frame [out.png]`                                                                         |
-| `POST /api/shutdown` | `keyscreen stop`                                                                                    |
+| Server                   | CLI                                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `GET /api/status`        | `keyscreen status`, `keyscreen modes`                                                               |
+| `POST /api/mode`         | `keyscreen mode <id>`                                                                               |
+| `POST /api/input`        | `keyscreen key <letters>`, `keyscreen draw x0,y0 x1,y1`, `keyscreen draw clear`, `keyscreen reseed` |
+| `POST /text`             | `keyscreen text <message>`                                                                          |
+| `POST /image`            | `keyscreen image <file.png>`                                                                        |
+| `GET /frame.png`         | `keyscreen frame [out.png]`                                                                         |
+| `POST /api/sleep`        | `keyscreen sleep <id>`, `keyscreen sleep try`, `keyscreen sleep wake`                               |
+| `POST /api/sleep/upload` | `keyscreen sleep upload <file>`                                                                     |
+| `POST /api/shutdown`     | `keyscreen stop`                                                                                    |
 
 Without the server, `text` and `image` write a still picture straight to the keyboard, and it stays there after the
 command exits. These commands talk to the keyboard directly, so stop the server first:
@@ -93,7 +112,8 @@ Other notes:
 - The key ticker reads every key typed on the QK108 when the server can open `/dev/input`. Otherwise it uses keys
   typed into its page.
 - Only one program can drive the screen at a time.
-- The server remembers the selected mode, message and picture (in `state/`) and comes back with them after a restart.
+- The server remembers the selected mode, message, picture and sleep animation (in `state/`) and comes back with them
+  after a restart.
 - If the screen chip freezes (it shows noise and stops responding), the dashboard and the top-bar icon say so. Power-cycle
   the keyboard: unplug USB, switch it off for 10 s, then reconnect. The server picks up again by itself.
 

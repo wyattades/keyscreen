@@ -37,6 +37,12 @@ const MAX_ERASE_MS = 3500;
 /** Rotate early, while nothing is changing, once the main area is this full. */
 const IDLE_ROTATE_FILL = 0.5;
 const IDLE_MS = 1000;
+/**
+ * If no write or erase finishes for this long, streaming has stalled (the screen stopped taking
+ * data without an error; it happened once and went unnoticed for 22 h). The stream then fails, so
+ * the service reconnects and, if the chip is frozen, says so. Longest normal gap: one erase, <4 s.
+ */
+const STALL_MS = 10_000;
 
 export interface LiveOptions {
   streamBlocks: number;
@@ -116,6 +122,8 @@ export class LiveScreen {
   private last: Uint8Array | undefined;
   private running = false;
   private loop: Promise<void> | undefined;
+  private lastProgressAt = 0;
+  private watchdog: ReturnType<typeof setInterval> | undefined;
   stats = {
     contentFrames: 0,
     emptyFrames: 0,
@@ -143,8 +151,10 @@ export class LiveScreen {
       log: () => {},
       ...opts,
     };
-    // 4 packets in flight: ~55 KB/s instead of ~18 KB/s, verified clean (dashboard `fast-writes`).
-    this.s.writeWindow = 4;
+    // 2 packets in flight: ~37 KB/s (1 = ~18 KB/s, 4 = ~55 KB/s, USB's ceiling). Every mode needs
+    // under 31 KB/s. 4 in flight was in use for both freezes during plain streaming (2026-10-23/24),
+    // so this stays gentler until that's ruled out.
+    this.s.writeWindow = 2;
   }
 
   private get frameMs() {
@@ -164,7 +174,17 @@ export class LiveScreen {
     await this.finishForSwitch(main);
     await this.goLive(main);
     this.running = true;
-    this.loop = this.pump();
+    this.lastProgressAt = performance.now();
+    const stalled = new Promise<never>((_, reject) => {
+      this.watchdog = setInterval(() => {
+        const ms = performance.now() - this.lastProgressAt;
+        if (this.running && ms > STALL_MS) {
+          this.running = false;
+          reject(new Error(`stream stalled: nothing written for ${Math.round(ms / 1000)} s`));
+        }
+      }, 1000);
+    });
+    this.loop = Promise.race([this.pump(), stalled]).finally(() => clearInterval(this.watchdog));
   }
 
   /** Resolves when streaming stops; rejects if it fails (e.g. the screen stops answering). */
@@ -194,25 +214,9 @@ export class LiveScreen {
     this.o.log(`erased main + parking (${n} blocks) in ${r.ms} ms (${r.chunks} erase${r.chunks > 1 ? "s" : ""})`);
   }
 
-  /**
-   * Erases blocks 0..n-1 (treating them all as written), in as few erases as keep each one under
-   * MAX_ERASE_MS. The erase always starts at block 0, so each chunk re-erases the already-blank
-   * blocks before it, which is cheap. A status ping between chunks keeps the screen awake.
-   */
+  /** eraseInSteps, counting each finished erase as progress for the stall watchdog. */
   private async eraseUpTo(n: number, restore: SlotEntry[]) {
-    let done = 0,
-      chunks = 0,
-      ms = 0;
-    while (done < n) {
-      const fresh = Math.max(1, Math.floor((MAX_ERASE_MS - done * ERASE_MS_BLANK) / ERASE_MS_WRITTEN));
-      const upTo = Math.min(n, done + fresh);
-      const r = await this.s.funcErase(upTo, restore, this.o.totalBlocks);
-      ms += r.eraseMs;
-      chunks++;
-      done = upTo;
-      if (done < n) await this.s.status();
-    }
-    return { ms, chunks };
+    return eraseInSteps(this.s, n, restore, this.o.totalBlocks, () => (this.lastProgressAt = performance.now()));
   }
 
   /** Estimated time for eraseUpTo(n) when every block holds data. */
@@ -308,6 +312,7 @@ export class LiveScreen {
       this.stats.emptyFrames++;
     }
     st.written++;
+    this.lastProgressAt = performance.now();
   }
 
   /** Writes up to SLICE bytes of queued background work. */
@@ -426,4 +431,33 @@ export class LiveScreen {
     this.stats.fallbackRotations++;
     this.o.log(`rotate: parking used up; showed the fallback frame for ${Math.round(performance.now() - t)} ms`);
   }
+}
+
+/**
+ * Erases blocks 0..n-1 (treating them all as written), in as few erases as keep each one under
+ * MAX_ERASE_MS. The erase always starts at block 0, so each step re-erases the already-blank
+ * blocks before it, which is cheap. A status ping between steps keeps the screen awake.
+ * `restore` is the slot table to leave in place (what's showing).
+ */
+export async function eraseInSteps(
+  s: Screen,
+  n: number,
+  restore: SlotEntry[],
+  totalBlocks: number,
+  onStep: () => void = () => {},
+) {
+  let done = 0,
+    chunks = 0,
+    ms = 0;
+  while (done < n) {
+    const fresh = Math.max(1, Math.floor((MAX_ERASE_MS - done * ERASE_MS_BLANK) / ERASE_MS_WRITTEN));
+    const upTo = Math.min(n, done + fresh);
+    const r = await s.funcErase(upTo, restore, totalBlocks);
+    ms += r.eraseMs;
+    chunks++;
+    done = upTo;
+    onStep();
+    if (done < n) await s.status();
+  }
+  return { ms, chunks };
 }

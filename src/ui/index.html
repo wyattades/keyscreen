@@ -128,6 +128,15 @@
         padding: 10px;
         cursor: pointer;
       }
+      .mode canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 240 / 136;
+        image-rendering: pixelated;
+        background: #000;
+        border-radius: 5px;
+        margin-bottom: 7px;
+      }
       .mode b {
         display: block;
         font-size: 14px;
@@ -266,6 +275,26 @@
         </section>
       </div>
       <section class="card panel" id="panel"></section>
+      <section class="card panel" id="sleep">
+        <h2>While the computer is locked</h2>
+        <p class="muted" style="margin: 0 0 10px">
+          The keyboard plays this animation on its own and the computer stops sending anything, until you unlock.
+        </p>
+        <div class="modes" id="sleepModes"></div>
+        <div class="row">
+          <label class="drop" id="sleepDrop" style="flex: 1; padding: 14px"
+            >Use your own: drop a PNG or animated GIF here, or click to choose one<input
+              type="file"
+              id="sleepFile"
+              accept="image/png,image/gif"
+              hidden
+          /></label>
+        </div>
+        <div class="row">
+          <button class="act" id="sleepTry">Try it on the keyboard</button>
+          <span class="muted" id="sleepState"></span>
+        </div>
+      </section>
       <div class="log" id="log"></div>
     </main>
     <script>
@@ -357,6 +386,87 @@
         $("#note").textContent = status.note;
         $("#log").textContent = (status.log || []).join("\n");
         renderPanel();
+        renderSleep();
+      }
+
+      // ---- sleep animations ----
+      let sleepBuilt = "";
+      const sleepAnims = {}; // id -> { img, frames, fps }
+      function loadSleepPreview(id) {
+        if (id === "off") return;
+        fetch(`/api/sleep/preview.png?mode=${id}&t=${Date.now()}`).then(async (r) => {
+          if (!r.ok) return delete sleepAnims[id];
+          const img = new Image();
+          img.src = URL.createObjectURL(await r.blob());
+          await img.decode();
+          sleepAnims[id] = { img, frames: +r.headers.get("x-frames"), fps: +r.headers.get("x-fps") };
+        });
+      }
+      function renderSleep() {
+        const sl = status.sleep;
+        if (!sl) return;
+        const sig = sl.modes.map((m) => m.id).join(",") + sl.hasUpload;
+        if (sig !== sleepBuilt) {
+          sleepBuilt = sig;
+          $("#sleepModes").innerHTML = sl.modes
+            .filter((m) => m.id !== "custom" || sl.hasUpload)
+            .map(
+              (m) =>
+                `<button class="mode" data-sleep="${m.id}">${m.id === "off" ? "" : `<canvas width="240" height="136" data-anim="${m.id}"></canvas>`}<b>${esc(m.name)}</b><span>${esc(m.blurb)}</span></button>`,
+            )
+            .join("");
+          for (const b of document.querySelectorAll("[data-sleep]"))
+            b.onclick = () =>
+              fetch("/api/sleep", { method: "POST", body: JSON.stringify({ mode: b.dataset.sleep }) }).then(poll);
+          for (const m of sl.modes) loadSleepPreview(m.id);
+        }
+        for (const b of document.querySelectorAll("[data-sleep]"))
+          b.classList.toggle("on", b.dataset.sleep === sl.mode);
+        $("#sleepTry").textContent = sl.asleep ? "Wake up" : "Try it on the keyboard";
+        $("#sleepTry").disabled = sl.mode === "off" || (sl.asleep && !sl.trying);
+        $("#sleepState").textContent = sl.asleep
+          ? sl.locked
+            ? "Asleep: the computer is locked."
+            : "Asleep (trying it). The live mode comes back when you wake it."
+          : "";
+      }
+      // Animate every preview from its frame strip.
+      function animateSleep(t) {
+        for (const c of document.querySelectorAll("canvas[data-anim]")) {
+          const a = sleepAnims[c.dataset.anim];
+          if (!a) continue;
+          const f = Math.floor((t / 1000) * a.fps) % a.frames;
+          c.getContext("2d").drawImage(a.img, f * 240, 0, 240, 136, 0, 0, 240, 136);
+        }
+        requestAnimationFrame(animateSleep);
+      }
+      requestAnimationFrame(animateSleep);
+      $("#sleepTry").onclick = () =>
+        fetch("/api/sleep", {
+          method: "POST",
+          body: JSON.stringify({ action: status.sleep.asleep ? "wake" : "try" }),
+        }).then(poll);
+      {
+        const upload = async (file) => {
+          if (!file) return;
+          const r = await fetch("/api/sleep/upload", { method: "POST", body: await file.arrayBuffer() });
+          if (!r.ok) alert((await r.json()).error);
+          sleepBuilt = "";
+          delete sleepAnims.custom;
+          poll();
+        };
+        $("#sleepFile").onchange = (e) => upload(e.target.files[0]);
+        const drop = $("#sleepDrop");
+        drop.ondragover = (e) => {
+          e.preventDefault();
+          drop.classList.add("over");
+        };
+        drop.ondragleave = () => drop.classList.remove("over");
+        drop.ondrop = (e) => {
+          e.preventDefault();
+          drop.classList.remove("over");
+          upload(e.dataTransfer.files[0]);
+        };
       }
       poll();
       setInterval(poll, 1000);

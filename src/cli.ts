@@ -27,6 +27,12 @@ Commands for the running server:
   frame [out.png]        save what the screen is showing
   stop                   stop the server cleanly
 
+While the computer is locked, the keyboard plays a stored animation (and nothing goes over USB):
+  sleep                  show the sleep animation and the choices
+  sleep <id>             choose it (hourglass, zzz, night, dark, custom, off = keep the live mode)
+  sleep upload <file>    use your own PNG or animated GIF
+  sleep try | wake       sleep now to see it on the keyboard, then wake up
+
 Work with or without the server (without it, the picture stays on screen after exit):
   text <message>         show a message
   image <file.png>       show a picture, scaled to fit
@@ -165,6 +171,25 @@ switch (cmd) {
     break;
   }
 
+  case "sleep": {
+    const [sub, file] = args;
+    if (!sub) {
+      const s = (await call("/api/status")).sleep;
+      for (const m of s.modes) console.log(`${m.id === s.mode ? "*" : " "} ${m.id.padEnd(9)} ${m.blurb}`);
+      console.log(s.asleep ? `asleep${s.locked ? " (computer locked)" : " (trying it)"}` : "awake");
+    } else if (sub === "upload") {
+      if (!file) fail("usage: keyscreen sleep upload <file.png|file.gif>");
+      await post("/api/sleep/upload", new Uint8Array(readFileSync(file)));
+      console.log("sleep animation: your picture");
+    } else if (sub === "try" || sub === "wake") {
+      await post("/api/sleep", { action: sub });
+      console.log(sub === "try" ? "asleep (run `keyscreen sleep wake` to wake it)" : "awake");
+    } else {
+      await post("/api/sleep", { mode: sub });
+      console.log(`sleep animation: ${sub}`);
+    }
+    break;
+  }
   case "stop":
     await post("/api/shutdown", {});
     console.log("server stopping");

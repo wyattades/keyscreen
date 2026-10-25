@@ -8,10 +8,13 @@ import { decodePng, encodePng } from "./png.ts";
 const STATE = process.env.KEYSCREEN_STATE ?? join(import.meta.dir, "..", "state");
 const FILE = join(STATE, "settings.json");
 const IMAGE = join(STATE, "image.png");
+const SLEEP_FILE = join(STATE, "sleep-custom");
 
 export interface Settings {
   mode?: string;
   message?: string;
+  /** Sleep animation id (see sleep.ts). */
+  sleep?: string;
 }
 
 export function loadSettings(): Settings {
@@ -45,4 +48,19 @@ export function saveImage(rgba: Uint8Array, w: number, h: number) {
   mkdirSync(STATE, { recursive: true });
   writeFileSync(IMAGE + ".tmp", encodePng(rgba, w, h));
   renameSync(IMAGE + ".tmp", IMAGE);
+}
+
+/** The uploaded sleep picture/GIF, as uploaded. */
+export function loadSleepUpload(): Uint8Array | undefined {
+  try {
+    return new Uint8Array(readFileSync(SLEEP_FILE));
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveSleepUpload(bytes: Uint8Array) {
+  mkdirSync(STATE, { recursive: true });
+  writeFileSync(SLEEP_FILE + ".tmp", bytes);
+  renameSync(SLEEP_FILE + ".tmp", SLEEP_FILE);
 }

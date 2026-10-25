@@ -364,3 +364,18 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   the old main stream used (≤ 24, ~3.3 s); big erases go in steps that each stay under 3.5 s, with a status ping
   between; a table left by an interrupted erase is recognised (no re-setup); after 3 failed connects the server stops,
   shows "power-cycle the keyboard", and resumes when the chip or keyboard re-enumerates.
+
+## Freezes during plain streaming; gentler writes, watchdog, sleep mode (2026-10-25)
+
+- With the short-erase fix, 28 rotations overnight all took 3.1-3.2 s **[verified, server log]**. But at 23:39:42 the
+  chip dropped off USB **during ordinary streaming** (no erase running; a `19` write failed with EPROTO), re-appeared
+  3 s later, and never answered `14` again: noise on screen. The server's new frozen detection caught it.
+- Looking back, 2026-10-23 had a silent one: the last rotation was 13:17, then nothing for 22 h (no errors, the chip
+  stayed on USB) until the keyboard was power-cycled. The server had no way to notice.
+- Both happened with 4 `19` writes in flight. Now 2 (~37 KB/s; every mode needs ≤ 31 KB/s, measured by encoding each
+  mode's frames: clock/sysmon ~6, draw ~10, stars ~14, Life ~25, ticker under fast typing ~30). Unproven as the cause.
+- Stall watchdog: if no write or erase finishes for 10 s, the stream fails, so the service reconnects and reports a
+  frozen chip.
+- Sleep mode: when GNOME locks or blanks the screen (`org.gnome.ScreenSaver` ActiveChanged / GetActive), the server
+  stops streaming, stores a short looping QGIF at block 0 (built-ins are 30-61 KB, one block) and lets go of USB; on
+  unlock it reconnects and streams again. This also gives the chip long rests from constant writing.

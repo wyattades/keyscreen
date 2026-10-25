@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { sleep } from "./hidraw.ts";
 import { ensureLayout } from "./layout.ts";
-import { LiveScreen } from "./live.ts";
+import { eraseInSteps, LiveScreen } from "./live.ts";
 import { decodePng, fitImage, isPng } from "./png.ts";
 import { Screen } from "./qk108.ts";
 import { renderText, type TextOptions } from "./textframe.ts";
@@ -18,6 +18,8 @@ export type ServiceState =
   | "setting up"
   | "running"
   | "reconnecting"
+  /** The computer is locked: the keyboard plays a stored animation and nothing is sent over USB. */
+  | "asleep"
   /** The keyboard isn't on USB. */
   | "no keyboard"
   /** The screen chip stopped answering; only a power cycle brings it back. */
@@ -38,6 +40,11 @@ export class ScreenService {
   current: Uint8Array = renderText("");
   updatedAt = 0;
   private live: LiveScreen | undefined;
+  /** What to show while asleep (undefined = awake). `gif` undefined = the stored blank frame. */
+  private sleepTarget: { gif?: Uint8Array; first: Uint8Array; name: string } | undefined;
+  /** What's stored and playing on the keyboard while asleep (so a repeated sleep() doesn't rewrite it). */
+  private shownSleep: object | undefined;
+  private kickWaiters: (() => void)[] = [];
   private log: (m: string) => void;
   private stopping = false;
 
@@ -77,6 +84,65 @@ export class ScreenService {
     this.showRgba(renderText(text, opts));
   }
 
+  /**
+   * Puts the keyboard screen to sleep: stops streaming, stores `gif` (a QGIF; omit for black) and
+   * plays it. It loops on the keyboard by itself; nothing is sent over USB until wake().
+   * `first` is a still of it for the preview.
+   */
+  sleep(target: { gif?: Uint8Array; first: Uint8Array; name: string }) {
+    this.sleepTarget = target;
+    this.kick();
+  }
+
+  /** Back to streaming the live picture. */
+  wake() {
+    if (!this.sleepTarget) return;
+    this.sleepTarget = undefined;
+    this.kick();
+  }
+
+  get asleep() {
+    return !!this.sleepTarget;
+  }
+
+  /** The picture to preview: the live one, or the sleep animation's first frame. */
+  get preview() {
+    return this.sleepTarget?.first ?? this.current;
+  }
+
+  private kick() {
+    const w = this.kickWaiters;
+    this.kickWaiters = [];
+    for (const f of w) f();
+  }
+  private kicked() {
+    return new Promise<void>((r) => this.kickWaiters.push(r));
+  }
+
+  /** Stores the sleep animation at block 0 (the managed area; streaming erases it again on wake) and shows it. */
+  private async showSleep(s: Screen, layout: { total: number; frames: { BLANK: { start: number; length: number } } }) {
+    const target = this.sleepTarget!;
+    const blank = layout.frames.BLANK;
+    await s.switchTable([blank], layout.total, "flip");
+    if (target.gif) {
+      const blocks = Math.ceil(target.gif.length / 65536);
+      await eraseInSteps(s, blocks, [blank], layout.total);
+      s.writeWindow = 2;
+      await s.writeAt(0, target.gif);
+      await s.switchTable([{ start: 0, length: target.gif.length }], layout.total, "flip");
+    }
+    this.shownSleep = target;
+    this.log(`asleep: showing ${target.name}${target.gif ? ` (${Math.round(target.gif.length / 1024)} KB)` : ""}`);
+  }
+
+  /** Holds off USB until wake(), stop(), or a different sleep animation. */
+  private async restWhileAsleep() {
+    this.state = "asleep";
+    this.lastError = "";
+    while (this.sleepTarget && this.shownSleep === this.sleepTarget && !this.stopping) await this.kicked();
+    if (!this.sleepTarget && !this.stopping) this.log("waking up");
+  }
+
   /** Runs until stop(): connect, stream, and reconnect after failures. */
   async run() {
     let fails = 0;
@@ -100,6 +166,16 @@ export class ScreenService {
         s = this.fake ? fakeScreen() : await Screen.connect(15000, this.log);
         this.state = "setting up";
         const layout = this.fake ? fakeLayout : await ensureLayout(s, this.log);
+        if (this.sleepTarget) {
+          // Store the animation, let go of USB, and wait for wake() or a different animation.
+          if (this.shownSleep !== this.sleepTarget) await this.showSleep(s, layout);
+          s.close();
+          s = undefined;
+          fails = 0;
+          await this.restWhileAsleep();
+          continue;
+        }
+        this.shownSleep = undefined;
         this.live = new LiveScreen(s, {
           // Half and half: a full main area stays a short erase (see live.ts), and 24 parking
           // blocks mean ~24 rotations between the fallback-frame hiccups.
@@ -114,7 +190,24 @@ export class ScreenService {
         this.lastError = "";
         fails = 0;
         this.log("screen service running");
-        await this.live.finished;
+        // Stream until it fails or sleep() is called.
+        const live = this.live;
+        let sleepNow = false;
+        while (!sleepNow) {
+          await Promise.race([live.finished, this.kicked()]);
+          sleepNow = !!this.sleepTarget || this.stopping;
+          if (!sleepNow && !this.live) break;
+        }
+        if (this.sleepTarget && !this.stopping) {
+          await live.stop(layout.frames.BLANK);
+          this.live = undefined;
+          await this.showSleep(s, layout);
+          s.close();
+          s = undefined;
+          await this.restWhileAsleep();
+          continue;
+        }
+        await live.finished;
       } catch (e) {
         this.lastError = (e as Error).message;
         this.log(`screen error: ${this.lastError}`);
@@ -168,6 +261,7 @@ export class ScreenService {
   /** Stops streaming and leaves the blank frame on screen. */
   async stop() {
     this.stopping = true;
+    this.kick();
     await this.live?.stop();
   }
 }
