@@ -1,6 +1,6 @@
 /* keyscreen dashboard: an old-console look to match the keyboard's pixel screen.
    Pixel fonts (src/ui/fonts, OFL), square corners, 2px borders with hard offset shadows, the LED
-   ticker's amber as the accent, and the screen in a bezel with faint scanlines. */
+   ticker's amber as the accent, and the screen in a bezel. */
 
 @font-face {
   font-family: "Silkscreen";
@@ -168,14 +168,6 @@ h1::after {
 }
 .screenbox .screen {
   margin: 0;
-}
-/* Faint scanlines over the screen, like a small LCD up close. */
-.screenbox::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0 1px, transparent 1px 3px);
 }
 /* Draw mode: strokes go on this layer over the live picture. */
 .ink {
