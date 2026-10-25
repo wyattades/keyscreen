@@ -379,3 +379,14 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
 - Sleep mode: when GNOME locks or blanks the screen (`org.gnome.ScreenSaver` ActiveChanged / GetActive), the server
   stops streaming, stores a short looping QGIF at block 0 (built-ins are 30-61 KB, one block) and lets go of USB; on
   unlock it reconnects and streams again. This also gives the chip long rests from constant writing.
+
+## Noise while still answering USB (2026-10-25)
+
+- Around 15:05 the screen showed coloured noise while the server kept streaming happily: no USB errors, every `19`
+  write acknowledged (~10 frames/s), no disconnects in the kernel log. A server restart (fresh erase and stream) didn't
+  help; a full power cycle did **[verified, by eye + logs]**. So the controller's USB side kept working while its
+  display side was stuck: a new failure mode that the stall watchdog can't see.
+- Only the keyscreen server had the HID nodes open. Just before, two library checks ran: `node-hid` listing devices
+  (hidapi 0.15 enumerate, which reads sysfs and shouldn't open or write the device) and `uiohook-napi` under Node (X11
+  hooks only). Neither should touch the screen, but the timing is close, so `node-hid` gets a careful on-device trial
+  before it replaces `src/hidraw.ts`.
