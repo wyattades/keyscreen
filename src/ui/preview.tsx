@@ -33,36 +33,64 @@ export function Preview({ status, sleepStrip, brush }: { status: Status; sleepSt
  */
 function Ink({ brush }: { brush: Brush }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const last = useRef<number[] | null>(null);
+  /** Strokes on the layer (until it fades), each drawn as one path so its soft edges blend once. */
+  const strokes = useRef<{ id: number; points: number[][]; color: Brush["color"]; size: number }[]>([]);
+  const drawing = useRef(false);
+  const nextId = useRef(Date.now());
   const pending = useRef<number[][]>([]);
   const flush = useRef<ReturnType<typeof setTimeout>>(undefined);
   const fade = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Quarter pixels: what the server gets, so both draw exactly the same line.
   const at = (e: React.PointerEvent) => {
     const r = ref.current!.getBoundingClientRect();
-    return [((e.clientX - r.left) / r.width) * SCREEN_W, ((e.clientY - r.top) / r.height) * SCREEN_H];
+    return [((e.clientX - r.left) / r.width) * SCREEN_W, ((e.clientY - r.top) / r.height) * SCREEN_H].map(
+      (v) => Math.round(v * 4) / 4,
+    );
   };
+  const current = () => strokes.current[strokes.current.length - 1];
   const send = () => {
     flush.current = undefined;
-    if (!pending.current.length) return;
-    conn.send({ type: "draw", segs: pending.current, color: brush.color, size: brush.size });
+    const s = current();
+    if (!pending.current.length || !s) return;
+    conn.send({ type: "draw", stroke: s.id, segs: pending.current, color: s.color, size: s.size });
     pending.current = [];
   };
-  const stroke = (a: number[], b: number[]) => {
-    // Smooth like the server's lines (src/modes.ts DrawMode): width 2 * size + 1, round ends.
+  // Width 2 * size + 1 with round ends, like the server (src/modes.ts DrawMode).
+  const redraw = () => {
     const g = ref.current!.getContext("2d")!;
-    g.strokeStyle = `rgb(${brush.color})`;
-    g.lineWidth = brush.size * 2 + 1;
-    g.lineCap = "round";
-    g.beginPath();
-    g.moveTo(a[0], a[1]);
-    g.lineTo(b[0], b[1]);
-    g.stroke();
-    pending.current.push([...a, ...b].map((v) => Math.round(v * 4) / 4));
+    g.clearRect(0, 0, SCREEN_W, SCREEN_H);
+    g.lineCap = g.lineJoin = "round";
+    for (const s of strokes.current) {
+      g.strokeStyle = `rgb(${s.color})`;
+      g.lineWidth = s.size * 2 + 1;
+      g.beginPath();
+      g.moveTo(s.points[0][0], s.points[0][1]);
+      for (const [x, y] of s.points) g.lineTo(x, y);
+      g.stroke();
+    }
+  };
+  const add = (p: number[]) => {
+    const s = current();
+    const prev = s.points[s.points.length - 1] ?? p;
+    s.points.push(p);
+    pending.current.push([...prev, ...p]);
     flush.current ??= setTimeout(send, 30);
-    // Clear the ink once the server's frames have caught up with the last stroke.
+    redraw();
+    fadeSoon();
+  };
+  // Clear the ink once the server's frames have caught up with the last stroke.
+  const fadeSoon = () => {
     clearTimeout(fade.current);
-    fade.current = setTimeout(() => g.clearRect(0, 0, SCREEN_W, SCREEN_H), 600);
+    fade.current = setTimeout(() => {
+      if (drawing.current) return;
+      strokes.current = [];
+      redraw();
+    }, 600);
+  };
+  const end = () => {
+    drawing.current = false;
+    fadeSoon();
   };
 
   return (
@@ -73,17 +101,14 @@ function Ink({ brush }: { brush: Brush }) {
       height={SCREEN_H}
       onPointerDown={(e) => {
         ref.current!.setPointerCapture(e.pointerId);
-        last.current = at(e);
-        stroke(last.current, last.current);
+        send();
+        drawing.current = true;
+        strokes.current.push({ id: nextId.current++, points: [], color: brush.color, size: brush.size });
+        add(at(e));
       }}
-      onPointerMove={(e) => {
-        if (!last.current) return;
-        const p = at(e);
-        stroke(last.current, p);
-        last.current = p;
-      }}
-      onPointerUp={() => (last.current = null)}
-      onPointerCancel={() => (last.current = null)}
+      onPointerMove={(e) => drawing.current && add(at(e))}
+      onPointerUp={end}
+      onPointerCancel={end}
     />
   );
 }

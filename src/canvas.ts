@@ -65,40 +65,19 @@ export class Canvas {
    * All pieces are measured together, so where they overlap (joints) the edge isn't blended twice.
    */
   strokeSmooth(segs: number[][], halfWidth: number, c: RGB) {
-    if (!segs.length) return;
-    let minX = W,
-      minY = H,
-      maxX = 0,
-      maxY = 0;
-    for (const [x0, y0, x1, y1] of segs) {
-      minX = Math.min(minX, x0, x1);
-      maxX = Math.max(maxX, x0, x1);
-      minY = Math.min(minY, y0, y1);
-      maxY = Math.max(maxY, y0, y1);
+    const cov = new Float32Array(W * H);
+    addCoverage(cov, segs, halfWidth);
+    this.blendCoverage(cov, c);
+  }
+
+  /** Blends `c` into every pixel by its coverage (0-1, W*H). */
+  blendCoverage(cov: Float32Array, c: RGB) {
+    for (let i = 0; i < cov.length; i++) {
+      const a = cov[i];
+      if (!a) continue;
+      const o = i * 4;
+      for (let k = 0; k < 3; k++) this.rgba[o + k] = Math.round(this.rgba[o + k] * (1 - a) + c[k] * a);
     }
-    const pad = halfWidth + 1;
-    const xa = Math.max(0, Math.floor(minX - pad)),
-      xb = Math.min(W - 1, Math.ceil(maxX + pad));
-    const ya = Math.max(0, Math.floor(minY - pad)),
-      yb = Math.min(H - 1, Math.ceil(maxY + pad));
-    for (let py = ya; py <= yb; py++)
-      for (let px = xa; px <= xb; px++) {
-        // Distance from the pixel's centre to the nearest piece.
-        const cx = px + 0.5,
-          cy = py + 0.5;
-        let d = Infinity;
-        for (const [x0, y0, x1, y1] of segs) {
-          const dx = x1 - x0,
-            dy = y1 - y0;
-          const len2 = dx * dx + dy * dy;
-          const t = len2 ? Math.max(0, Math.min(1, ((cx - x0) * dx + (cy - y0) * dy) / len2)) : 0;
-          d = Math.min(d, Math.hypot(cx - (x0 + t * dx), cy - (y0 + t * dy)));
-        }
-        const a = Math.max(0, Math.min(1, halfWidth + 0.5 - d));
-        if (!a) continue;
-        const o = (py * W + px) * 4;
-        for (let k = 0; k < 3; k++) this.rgba[o + k] = Math.round(this.rgba[o + k] * (1 - a) + c[k] * a);
-      }
   }
 
   /** Pixel-font text. `align` positions it around x. Returns its width. */
@@ -134,4 +113,43 @@ export function hsv(h: number, s = 1, v = 1): RGB {
     return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))));
   };
   return [f(5), f(3), f(1)];
+}
+
+/**
+ * Adds thick line pieces (round ends, width 2 * halfWidth) to a coverage map (0-1 per pixel, W*H),
+ * keeping the larger value where pieces overlap. Pixel centres are at +0.5, as on a browser canvas.
+ */
+export function addCoverage(cov: Float32Array, segs: number[][], halfWidth: number) {
+  if (!segs.length) return;
+  let minX = W,
+    minY = H,
+    maxX = 0,
+    maxY = 0;
+  for (const [x0, y0, x1, y1] of segs) {
+    minX = Math.min(minX, x0, x1);
+    maxX = Math.max(maxX, x0, x1);
+    minY = Math.min(minY, y0, y1);
+    maxY = Math.max(maxY, y0, y1);
+  }
+  const pad = halfWidth + 1;
+  const xa = Math.max(0, Math.floor(minX - pad)),
+    xb = Math.min(W - 1, Math.ceil(maxX + pad));
+  const ya = Math.max(0, Math.floor(minY - pad)),
+    yb = Math.min(H - 1, Math.ceil(maxY + pad));
+  for (let py = ya; py <= yb; py++)
+    for (let px = xa; px <= xb; px++) {
+      const cx = px + 0.5,
+        cy = py + 0.5;
+      let d = Infinity;
+      for (const [x0, y0, x1, y1] of segs) {
+        const dx = x1 - x0,
+          dy = y1 - y0;
+        const len2 = dx * dx + dy * dy;
+        const t = len2 ? Math.max(0, Math.min(1, ((cx - x0) * dx + (cy - y0) * dy) / len2)) : 0;
+        d = Math.min(d, Math.hypot(cx - (x0 + t * dx), cy - (y0 + t * dy)));
+      }
+      const a = Math.max(0, Math.min(1, halfWidth + 0.5 - d));
+      const i = py * W + px;
+      if (a > cov[i]) cov[i] = a;
+    }
 }

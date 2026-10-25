@@ -64,3 +64,20 @@ export function saveSleepUpload(bytes: Uint8Array) {
   writeFileSync(SLEEP_FILE + ".tmp", bytes);
   renameSync(SLEEP_FILE + ".tmp", SLEEP_FILE);
 }
+
+/** A screen-sized picture kept in state/ (e.g. the drawing), or undefined. */
+export function loadStatePng(name: string, w: number, h: number): Uint8Array | undefined {
+  try {
+    const img = decodePng(new Uint8Array(readFileSync(join(STATE, name))));
+    return img.width === w && img.height === h ? img.rgba : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveStatePng(name: string, rgba: Uint8Array, w: number, h: number) {
+  mkdirSync(STATE, { recursive: true });
+  const file = join(STATE, name);
+  writeFileSync(file + ".tmp", encodePng(rgba, w, h));
+  renameSync(file + ".tmp", file);
+}

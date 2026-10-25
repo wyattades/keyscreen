@@ -3,7 +3,7 @@
 // ~55 KB/s USB limit: they change a small part of the screen per frame (sparse dots, 4x4 cells,
 // digits), which streams smoothly, rather than redrawing everything.
 import { readdirSync, readFileSync } from "node:fs";
-import { Canvas, H, W, hsv, type RGB } from "./canvas.ts";
+import { addCoverage, Canvas, H, W, hsv, type RGB } from "./canvas.ts";
 import { GLYPH_H, glyph } from "./font.ts";
 import { onTypedChar } from "./keys.ts";
 import { SandMode } from "./sand-mode.ts";
@@ -37,9 +37,28 @@ export class DrawMode implements Mode {
   id = "draw";
   name = "Draw";
   blurb = "Draw right on the dashboard's picture of the screen; it shows up on the keyboard.";
+  /** Called (at most once a second) with the drawing after it changes, to save it. */
+  onChange: ((rgba: Uint8Array) => void) | undefined;
+  /** Finished strokes. */
+  private base = new Canvas();
+  /**
+   * The stroke in progress, as coverage per pixel. A stroke arrives in many small messages; keeping
+   * one coverage map for all of it blends its soft edges once, like the page's single canvas stroke
+   * (blending each piece separately stacks the edges up and makes the line look thicker).
+   */
+  private cov = new Float32Array(W * H);
+  private stroke: unknown = undefined;
+  private strokeColor: RGB = [255, 255, 255];
   private c = new Canvas();
   private dirty = true;
   private timer?: ReturnType<typeof setInterval>;
+  private saveTimer?: ReturnType<typeof setTimeout>;
+
+  /** Restores a saved drawing. */
+  load(rgba: Uint8Array) {
+    this.base.rgba.set(rgba);
+    this.render();
+  }
 
   start(ctx: ModeContext) {
     this.dirty = true;
@@ -54,16 +73,42 @@ export class DrawMode implements Mode {
   }
   input(msg: Record<string, unknown>) {
     if (msg.type === "clear") {
-      this.c.clear();
-      this.dirty = true;
+      this.base.clear();
+      this.cov.fill(0);
+      this.stroke = undefined;
     } else if (msg.type === "draw") {
       const color = (msg.color as RGB) ?? [255, 255, 255];
       const r = Math.max(0, Math.min(10, Number(msg.size ?? 2)));
-      // Smooth, matching the page's stroke (width 2 * size + 1). The edges are blends of the line
-      // and what's under it, which the screen's 4x4 tiles (two colours plus blends) keep well.
-      this.c.strokeSmooth((msg.segs as number[][]) ?? [], r + 0.5, color);
-      this.dirty = true;
-    }
+      // A new stroke (or an old page that doesn't say): bake the previous one in first.
+      if (msg.stroke === undefined || msg.stroke !== this.stroke) {
+        this.commit();
+        this.stroke = msg.stroke;
+        this.strokeColor = color;
+      }
+      // Width 2 * size + 1, like the page's ink.
+      addCoverage(this.cov, (msg.segs as number[][]) ?? [], r + 0.5);
+    } else return;
+    this.render();
+    this.scheduleSave();
+  }
+
+  private commit() {
+    this.base.blendCoverage(this.cov, this.strokeColor);
+    this.cov.fill(0);
+  }
+
+  private render() {
+    this.c.rgba.set(this.base.rgba);
+    this.c.blendCoverage(this.cov, this.strokeColor);
+    this.dirty = true;
+  }
+
+  private scheduleSave() {
+    if (this.saveTimer || !this.onChange) return;
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = undefined;
+      this.onChange?.(this.c.snapshot());
+    }, 1000);
   }
 }
 

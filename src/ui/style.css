@@ -36,7 +36,8 @@
   --warn: #ffd166;
   --shadow: #000;
   --pixel: "Silkscreen", ui-monospace, monospace;
-  --term: "VT323", ui-monospace, monospace;
+  --term: "VT323", ui-monospace, monospace; /* only the title */
+  --mono: ui-monospace, "DejaVu Sans Mono", "Ubuntu Mono", monospace; /* everything you read */
   color-scheme: dark;
 }
 
@@ -50,8 +51,7 @@ body {
     repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.015) 3px 4px), var(--bg);
   background-attachment: fixed;
   color: var(--text);
-  font: 21px/1.15 var(--term);
-  -webkit-font-smoothing: none;
+  font: 14px/1.45 var(--mono);
 }
 main {
   max-width: 1100px;
@@ -181,7 +181,7 @@ h1::after {
   z-index: 1;
 }
 .stats {
-  font-size: 18px;
+  font-size: 12px;
   color: var(--muted);
   min-height: 1.2em;
 }
@@ -221,8 +221,8 @@ h1::after {
 }
 .mode span {
   display: block;
-  font-size: 18px;
-  line-height: 1.05;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--muted);
 }
 .mode.on {
@@ -252,7 +252,7 @@ h1::after {
   border: 2px dashed var(--warn);
   padding: 8px 10px;
   margin: 12px 0 0;
-  font-size: 19px;
+  font-size: 13px;
 }
 .banner.alert {
   margin: 0 0 18px;
@@ -376,7 +376,7 @@ button.material.on {
 
 /* ---- server log, like a terminal ---- */
 .log {
-  font: 17px/1.15 var(--term);
+  font: 12px/1.5 var(--mono);
   color: #6fe08a;
   white-space: pre-wrap;
   margin-top: 18px;
@@ -394,7 +394,7 @@ button.material.on {
 
 @media (max-width: 520px) {
   body {
-    font-size: 19px;
+    font-size: 13px;
   }
   h1 {
     font-size: 42px;

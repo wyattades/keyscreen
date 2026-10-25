@@ -13,10 +13,11 @@ export function LiveCanvas(props: React.CanvasHTMLAttributes<HTMLCanvasElement>)
   return <canvas ref={ref} width={SCREEN_W} height={SCREEN_H} {...props} />;
 }
 
-/** A sleep animation's frames, side by side in one image (from /api/sleep/preview.png). */
+/** A sleep animation's frames in a grid image (from /api/sleep/preview.png). */
 export interface Strip {
   img: HTMLImageElement;
   frames: number;
+  cols: number;
   fps: number;
 }
 
@@ -33,7 +34,12 @@ export function useStrips(ids: string[], version: unknown): Record<string, Strip
         const img = new Image();
         img.src = URL.createObjectURL(await r.blob());
         await img.decode();
-        const strip = { img, frames: Number(r.headers.get("x-frames")), fps: Number(r.headers.get("x-fps")) };
+        const strip = {
+          img,
+          frames: Number(r.headers.get("x-frames")),
+          cols: Number(r.headers.get("x-cols")) || Number(r.headers.get("x-frames")),
+          fps: Number(r.headers.get("x-fps")),
+        };
         if (live) setStrips((s) => ({ ...s, [id]: strip }));
       });
     }
@@ -53,7 +59,9 @@ export function StripCanvas({ strip, className }: { strip: Strip | undefined; cl
     let raf = 0;
     const draw = (t: number) => {
       const f = Math.floor((t / 1000) * strip.fps) % strip.frames;
-      g.drawImage(strip.img, f * SCREEN_W, 0, SCREEN_W, SCREEN_H, 0, 0, SCREEN_W, SCREEN_H);
+      const sx = (f % strip.cols) * SCREEN_W,
+        sy = Math.floor(f / strip.cols) * SCREEN_H;
+      g.drawImage(strip.img, sx, sy, SCREEN_W, SCREEN_H, 0, 0, SCREEN_W, SCREEN_H);
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);

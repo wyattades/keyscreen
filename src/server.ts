@@ -11,15 +11,24 @@
 //   POST /api/sleep       {"mode": "zzz"} sets the sleep animation;        keyscreen sleep <id>
 //                         {"action": "try" | "wake"} sleeps/wakes now      keyscreen sleep try / wake
 //   POST /api/sleep/upload body: PNG or GIF -> custom sleep animation      keyscreen sleep upload <file>
-//   GET  /api/sleep/preview.png?mode=ID  frames side by side (x-frames, x-fps headers)
+//   GET  /api/sleep/preview.png?mode=ID  all frames in a grid (x-frames, x-cols, x-fps headers)
 //   POST /api/shutdown    stop the server cleanly                          keyscreen stop
 //   WS   /ws              JSON mode messages; binary messages = images
-import { allModes, ImageMode, MessageMode, TickerMode, type Mode } from "./modes.ts";
+import { allModes, DrawMode, ImageMode, MessageMode, TickerMode, type Mode } from "./modes.ts";
 import { decodePng, encodePng, fitImage, isPng } from "./png.ts";
 import { ScreenService, SCREEN_H, SCREEN_W } from "./service.ts";
 import { watchScreenLock } from "./lock.ts";
 import { renderText } from "./textframe.ts";
-import { loadImage, loadSettings, loadSleepUpload, saveImage, saveSettings, saveSleepUpload } from "./settings.ts";
+import {
+  loadImage,
+  loadSettings,
+  loadSleepUpload,
+  loadStatePng,
+  saveImage,
+  saveSettings,
+  saveSleepUpload,
+  saveStatePng,
+} from "./settings.ts";
 import { builtinSleep, decodeCustom, DEFAULT_SLEEP, encodeSleep, SLEEP_MODES, type SleepFrames } from "./sleep.ts";
 
 export const DEFAULT_PORT = 4110;
@@ -160,27 +169,29 @@ export function startServer(opts: ServerOptions = {}) {
     setSleepMode("custom");
   }
 
-  /** A strip of up to 48 frames (left to right) for the page to animate; headers say how many and how fast. */
+  /** Every frame of a sleep animation in one image, in a grid (headers: x-frames, x-cols, x-fps). */
   function sleepPreview(id: string): Response {
     if (id === "off") return new Response("no preview", { status: 404 });
     const f = id === "dark" ? { frames: [sleepTarget("dark").first], fps: 1 } : sleepFramesFor(id);
     if (!f) return new Response("no picture uploaded", { status: 404 });
-    const step = Math.max(1, Math.ceil(f.frames.length / 48));
-    const picked = f.frames.filter((_, i) => i % step === 0);
-    const strip = new Uint8Array(SCREEN_W * picked.length * SCREEN_H * 4);
-    picked.forEach((fr, k) => {
+    const n = f.frames.length,
+      cols = Math.min(n, 16),
+      rows = Math.ceil(n / cols);
+    const gw = SCREEN_W * cols;
+    const sheet = new Uint8Array(gw * SCREEN_H * rows * 4);
+    f.frames.forEach((fr, k) => {
+      const ox = (k % cols) * SCREEN_W,
+        oy = Math.floor(k / cols) * SCREEN_H;
       for (let y = 0; y < SCREEN_H; y++)
-        strip.set(
-          fr.subarray(y * SCREEN_W * 4, (y + 1) * SCREEN_W * 4),
-          (y * SCREEN_W * picked.length + k * SCREEN_W) * 4,
-        );
+        sheet.set(fr.subarray(y * SCREEN_W * 4, (y + 1) * SCREEN_W * 4), ((oy + y) * gw + ox) * 4);
     });
-    return new Response(new Uint8Array(encodePng(strip, SCREEN_W * picked.length, SCREEN_H)), {
+    return new Response(new Uint8Array(encodePng(sheet, gw, SCREEN_H * rows)), {
       headers: {
         "content-type": "image/png",
         "cache-control": "no-store",
-        "x-frames": String(picked.length),
-        "x-fps": String(f.fps / step),
+        "x-frames": String(n),
+        "x-cols": String(cols),
+        "x-fps": String(f.fps),
       },
     });
   }
@@ -307,6 +318,12 @@ export function startServer(opts: ServerOptions = {}) {
   const image = modes.find((m) => m instanceof ImageMode) as ImageMode | undefined;
   const savedImage = remember ? loadImage(SCREEN_W, SCREEN_H) : undefined;
   if (image && savedImage) image.last = savedImage;
+  const draw = modes.find((m) => m instanceof DrawMode) as DrawMode | undefined;
+  if (draw && remember) {
+    const saved = loadStatePng("drawing.png", SCREEN_W, SCREEN_H);
+    if (saved) draw.load(saved);
+    draw.onChange = (rgba) => saveStatePng("drawing.png", rgba, SCREEN_W, SCREEN_H);
+  }
   const startMode = opts.mode ?? (saved.mode && modes.some((m) => m.id === saved.mode) ? saved.mode : "clock");
   setMode(startMode);
   void service.run();
