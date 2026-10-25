@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs the screen server as a user service (starts at login), the top-bar indicator, and the
 # keyscreen-pointer GNOME Shell extension (gives Sand mode the exact mouse position).
-#   desktop/install.sh            install / update
+#   desktop/install.sh            install / update (asks for sudo once, for the udev rule)
 #   desktop/install.sh --remove   uninstall
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,6 +26,20 @@ fi
 if [[ -f "$HOME/.config/systemd/user/qk108.service" ]]; then
   systemctl --user disable --now qk108.service 2>/dev/null || true
   rm -f "$HOME/.config/systemd/user/qk108.service" "$HOME/.config/autostart/qk108-indicator.desktop"
+fi
+
+# udev rule (needs sudo once): the keyboard's screen and vendor channels, plus read access to the
+# QK108's keys and the mouse for the key ticker and Sand mode. Replaces the old `input` group setup.
+RULES=/etc/udev/rules.d/70-keyscreen.rules
+if ! cmp -s "$ROOT/70-keyscreen.rules" "$RULES"; then
+  echo "installing the udev rule (asks for your password)…"
+  sudo install -m 644 "$ROOT/70-keyscreen.rules" "$RULES"
+  sudo rm -f /etc/udev/rules.d/70-epomaker-qk108.rules
+  sudo udevadm control --reload-rules
+  sudo udevadm trigger --subsystem-match=hidraw --subsystem-match=input
+fi
+if id -nG | tr ' ' '\n' | grep -qx input; then
+  echo "note: you no longer need the input group: sudo gpasswd -d $USER input   (then log out and back in)"
 fi
 
 mkdir -p "$(dirname "$UNIT")" "$(dirname "$AUTOSTART")"

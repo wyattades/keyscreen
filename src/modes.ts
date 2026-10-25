@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { addCoverage, Canvas, H, W, hsv, type RGB } from "./canvas.ts";
 import { GLYPH_H, glyph } from "./font.ts";
-import { onTypedChar } from "./keys.ts";
+import { watchInput } from "./input.ts";
 import { SandMode } from "./sand-mode.ts";
 import { renderText } from "./textframe.ts";
 
@@ -134,20 +134,14 @@ export class TickerMode implements Mode {
 
   start(ctx: ModeContext) {
     this.ctx = ctx;
-    try {
-      this.stopKeys = onTypedChar(
-        (ch) => this.type(ch),
-        (e) => ctx.log(`keys: ${e.message}`),
-      );
-      this.keySource = "keyboard";
-      ctx.note("Capturing every key typed on the QK108, in any app.");
-    } catch (e) {
-      this.stopKeys = undefined;
-      this.keySource = "page";
-      ctx.note(
-        `Can't read the keyboard directly (${(e as Error).message}). Typing into this page works instead. To capture all keys, log out and back in, then restart the screen server.`,
-      );
-    }
+    const input = watchInput({ key: (ch) => this.type(ch) });
+    this.stopKeys = () => input.stop();
+    this.keySource = input.source.keys === "evdev" ? "keyboard" : "page";
+    ctx.note(
+      input.source.keys === "evdev"
+        ? "Capturing every key typed on the QK108, in any app."
+        : `Can't read the keyboard directly (${input.problem}). Typing into this page works instead.`,
+    );
     this.timer = setInterval(() => this.frame(), 100);
   }
   stop() {

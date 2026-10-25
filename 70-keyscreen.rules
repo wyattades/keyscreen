@@ -13,3 +13,13 @@ SUBSYSTEM=="hidraw", ENV{KEYSCREEN_PART}=="?*", ATTRS{bInterfaceNumber}=="01", M
 # Keyboard: standard boot-keyboard interface 0, WRITE-ONLY for plugdev (mode 0620, no uaccess ACL).
 # Lets us set the lock LEDs (which the screen shows as icons) without being able to read keystrokes.
 SUBSYSTEM=="hidraw", ENV{KEYSCREEN_PART}=="keyboard", ATTRS{bInterfaceNumber}=="00", MODE="0620", GROUP="plugdev"
+
+# Input for the modes that react to the computer's keyboard and mouse (key ticker, sand), instead of
+# putting the user in the `input` group. "uaccess" gives only the user logged in at this machine
+# (the active local session) read access, and only to these devices:
+#   - the QK108's own key event devices (what you type on it)
+#   - mice (clicks, wheel, movement)
+# Other keyboards stay unreadable. Note this still means programs you run can read what's typed on
+# the QK108; that's what the key ticker needs.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="36b0", ATTRS{idProduct}=="30af", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_MOUSE}=="1", TAG+="uaccess"

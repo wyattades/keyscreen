@@ -1,4 +1,4 @@
-// Key-press events from the QK108's evdev devices (needs the `input` group).
+// Key-press events from the QK108's evdev devices (access via the udev rule, 70-keyscreen.rules).
 // Only reports that a key went down; callers never get key codes.
 // Reads are non-blocking and polled, so stopping never leaves a stuck read behind.
 import { closeSync, constants, openSync, readFileSync, readSync, readdirSync } from "node:fs";
@@ -41,9 +41,7 @@ export function onKeyDown(onKeyDown: () => void, onError: (e: Error) => void = (
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
       throw code === "EACCES"
-        ? new Error(
-            `${path}: permission denied. Is your user in the input group (log out and back in after adding it)?`,
-          )
+        ? new Error(`${path}: permission denied. Is the udev rule installed (desktop/install.sh)?`)
         : e;
     }
   });
@@ -164,7 +162,7 @@ export const KEY_BACKSPACE = 14,
 /**
  * Calls `onChar` with the character for each key press on the QK108 (shift-aware, uppercase),
  * or "\b" for Backspace and "\n" for Enter. Key presses with no printable character are ignored.
- * Needs read access to /dev/input (the `input` group). Returns a stop function.
+ * Needs read access to its /dev/input nodes (the udev rule). Returns a stop function.
  */
 export function onTypedChar(onChar: (ch: string) => void, onError: (e: Error) => void = () => {}): () => void {
   const nodes = keyboardEventNodes();
@@ -174,7 +172,7 @@ export function onTypedChar(onChar: (ch: string) => void, onError: (e: Error) =>
       return openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
-      throw code === "EACCES" ? new Error(`${path}: no permission (needs the input group)`) : e;
+      throw code === "EACCES" ? new Error(`${path}: no permission (install the udev rule: desktop/install.sh)`) : e;
     }
   });
   let shift = 0,

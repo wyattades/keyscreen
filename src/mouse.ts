@@ -1,4 +1,4 @@
-// Mouse movement, buttons and wheel from evdev (needs the `input` group), plus a tracker that turns
+// Mouse movement, buttons and wheel from evdev (access via the udev rule, 70-keyscreen.rules), plus a tracker that turns
 // movement into an approximate pointer position. On Wayland, programs can't ask where the pointer
 // is, so the tracker adds up the raw movement and clamps it to the desktop: pushing the mouse into
 // a screen edge lines it up with the real pointer again.
@@ -44,7 +44,7 @@ export function onMouse(h: MouseHandlers, onError: (e: Error) => void = () => {}
       return openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
     } catch (e) {
       throw (e as NodeJS.ErrnoException).code === "EACCES"
-        ? new Error(`${path}: permission denied (needs the input group)`)
+        ? new Error(`${path}: permission denied (install the udev rule: desktop/install.sh)`)
         : e;
     }
   });

@@ -12,13 +12,11 @@
 //
 // The pointer position comes from the keyscreen-pointer GNOME Shell extension when it's installed
 // (exact, see src/pointer.ts); otherwise it's estimated from the mouse's raw movement, which drifts
-// with GNOME's pointer acceleration. Without /dev/input access (the `input` group) at all, the
+// with GNOME's pointer acceleration. Without /dev/input access (the udev rule) at all, the
 // dashboard's preview stands in as a pad.
 import { Canvas, H, W } from "./canvas.ts";
-import { onTypedChar } from "./keys.ts";
-import { BTN_LEFT, BTN_MIDDLE, BTN_RIGHT, onMouse, PointerTracker } from "./mouse.ts";
+import { watchInput, type Input } from "./input.ts";
 import type { Mode, ModeContext } from "./modes.ts";
-import { watchShellPointer } from "./pointer.ts";
 import { M, MATERIALS, SandWorld, SWATCH } from "./sand.ts";
 
 const FRAME_MS = 100;
@@ -39,69 +37,43 @@ export class SandMode implements Mode {
    * Where the pointer position comes from: the GNOME extension (exact), the mouse's raw movement
    * (estimated), or the dashboard page (no /dev/input access).
    */
-  pointerSource: "gnome" | "estimate" | "page" = "page";
-  private running = false;
+  get pointerSource(): "gnome" | "estimate" | "page" {
+    const p = this.inputs?.source.pointer ?? "none";
+    return p === "none" ? "page" : p;
+  }
+  private inputs: Input | undefined;
   private world = new SandWorld(W, H);
   private material = 0;
   private brush = 3;
-  private pointer = new PointerTracker();
+  private pointer = { x: 0.5, y: 0.5, movedAt: 0 };
   private hudUntil = 0;
   private hudText = "";
   private flushUntil = 0;
   private timer?: ReturnType<typeof setInterval>;
-  private stops: (() => void)[] = [];
   private frame = 0;
 
   start(ctx: ModeContext) {
-    this.stops = [];
-    this.running = true;
-    try {
-      this.stops.push(
-        onMouse({
-          move: (dx, dy) => this.pointerSource === "estimate" && this.pointer.move(dx, dy),
-          button: (b, down) => down && this.click(b === BTN_LEFT ? "left" : b === BTN_RIGHT ? "right" : "middle"),
-          wheel: (n) => this.setBrush(this.brush + Math.sign(n)),
-        }),
-      );
-      this.stops.push(onTypedChar((ch) => this.key(ch)));
-      this.pointerSource = "estimate";
-      ctx.note(
-        "Pouring where your mouse is, estimated from its movement, so it can drift near the screen edges. Install the keyscreen-pointer GNOME extension (desktop/install.sh) for the exact position.",
-      );
-      // Prefer the exact position from the GNOME extension, if it's running.
-      let first = true;
-      void watchShellPointer((p) => {
-        this.pointer.x = p.x;
-        this.pointer.y = p.y;
-        // The first report is just where it is now, not a movement.
-        if (!first) this.pointer.movedAt = performance.now();
-        first = false;
-      }).then((stop) => {
-        if (!stop) return;
-        if (!this.running) return stop();
-        this.stops.push(stop);
-        this.pointerSource = "gnome";
-        ctx.note(
-          "Pouring where your mouse pointer is. Click for the next material, right-click for a crater, type to blast.",
-        );
-      });
-    } catch (e) {
-      for (const s of this.stops) s();
-      this.stops = [];
-      this.pointerSource = "page";
-      ctx.note(
-        `Can't read the mouse and keyboard directly (${(e as Error).message}). Move over the preview to pour, click it for the next material.`,
-      );
-    }
+    const input = watchInput({
+      key: (ch) => this.key(ch),
+      button: (b) => this.click(b),
+      wheel: (n) => this.setBrush(this.brush + Math.sign(n)),
+      pointerMoved: () => {
+        this.pointer.x = input.pointer.x;
+        this.pointer.y = input.pointer.y;
+        this.pointer.movedAt = performance.now();
+      },
+    });
+    this.inputs = input;
+    if (input.problem)
+      ctx.note(`Can't read the mouse or keyboard (${input.problem}). Move over the preview to pour instead.`);
     this.flash(MATERIALS[this.material].name);
     this.timer = setInterval(() => this.tick(ctx), FRAME_MS);
   }
 
   stop() {
-    this.running = false;
     clearInterval(this.timer);
-    for (const s of this.stops) s();
-    this.stops = [];
+    this.inputs?.stop();
+    this.inputs = undefined;
   }
 
   /**
