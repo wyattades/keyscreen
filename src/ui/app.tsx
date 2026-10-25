@@ -68,7 +68,7 @@ function App() {
           <Preview status={status} sleepStrip={sleepStrip} brush={brush} />
           <div className="stats">
             {status.stats &&
-              `${status.stats.contentFrames} frames sent · ${status.stats.rotations} flash recycles · the keyboard shows each frame ~0.4 s after it appears here`}
+              `${status.stats.contentFrames} frames sent · ${status.stats.rotations} flash recycles · the keyboard shows each frame ~0.6 s after it appears here`}
           </div>
         </section>
         <section className="card">

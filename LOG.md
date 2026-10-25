@@ -390,3 +390,11 @@ GIFs must be encoded as QGIF (4x4 DXT1-like blocks, header `QGIF`). They are wri
   (hidapi 0.15 enumerate, which reads sysfs and shouldn't open or write the device) and `uiohook-napi` under Node (X11
   hooks only). Neither should touch the screen, but the timing is close, so `node-hid` gets a careful on-device trial
   before it replaces `src/hidraw.ts`.
+- Second time (15:20, again a few minutes into Key ticker): the server's stats showed the stream had run dry once
+  (`starvedMs` 100, `maxBehindFrames` 3) with nearly every frame new content (2,855 of 2,858). Likely mechanism: a
+  content frame is written when playback is only ~3 frames behind, the write takes a frame or more at 2-in-flight
+  speed (~37 KB/s), and the screen, which reads ~3 frames ahead, decodes the record half-written. Probably the same
+  cause the first time. Fix (`src/live.ts`): before writing a content frame, estimate its write time from the measured
+  speed and add "no change" frames until it can't be reached (READAHEAD_FRAMES 4 + write time); default lead 3 -> 5
+  frames (3 was always marginal; it held while writes were fast). Simulated at 37 KB/s with fast typing: closest
+  content frame 4 frames ahead of playback, ~9 content frames/s. Display delay ~0.4 -> ~0.6 s.

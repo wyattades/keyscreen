@@ -48,7 +48,7 @@ pnpm keyscreen image picture.png   # show a picture (works without the server to
 pnpm keyscreen help                # everything else
 ```
 
-The server streams live content to the screen (~0.4 s delay, no "Downloading" after the first-run setup). The
+The server streams live content to the screen (~0.6 s delay, no "Downloading" after the first-run setup). The
 keyboard shows it on its GIF page: press **Fn + Right Shift** to get there. Modes:
 
 | Mode      | What it shows                                                                                   |

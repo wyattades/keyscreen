@@ -43,6 +43,12 @@ const IDLE_MS = 1000;
  * the service reconnects and, if the chip is frozen, says so. Longest normal gap: one erase, <4 s.
  */
 const STALL_MS = 10_000;
+/**
+ * The screen reads ~0.3 s (3 frames) ahead of what it shows, plus a frame of margin. A frame must be
+ * completely in flash before playback gets this close, or the screen decodes a half-written record
+ * (see feed); that left it showing noise until a power cycle (2026-10-25).
+ */
+const READAHEAD_FRAMES = 4;
 
 export interface LiveOptions {
   streamBlocks: number;
@@ -123,6 +129,8 @@ export class LiveScreen {
   private running = false;
   private loop: Promise<void> | undefined;
   private lastProgressAt = 0;
+  /** Measured write speed (bytes per ms), for timing content writes; starts conservative. */
+  private bytesPerMs = 25;
   private watchdog: ReturnType<typeof setInterval> | undefined;
   stats = {
     contentFrames: 0,
@@ -132,6 +140,8 @@ export class LiveScreen {
     starvedMs: 0,
     maxBehindFrames: 0,
     maxContentGapMs: 0,
+    /** "No change" frames added so a big frame finishes writing before playback reaches it. */
+    leadPadding: 0,
   };
   private lastContentShowAt = 0;
   private lastPushAt = 0;
@@ -139,10 +149,12 @@ export class LiveScreen {
 
   constructor(screen: Screen, opts: LiveOptions) {
     this.s = screen;
-    // Defaults from on-device tests: 10 fps (no frame-time rounding drift), 0.3 s buffer, no padding.
+    // Defaults from on-device tests: 10 fps (no frame-time rounding drift), 0.5 s buffer, no padding.
     this.o = {
       fps: 10,
-      leadFrames: 3,
+      // 5: the screen reads ~3 frames ahead, so 3 (the old default) left a big frame no time to
+      // finish writing; see READAHEAD_FRAMES. Costs ~0.2 s more delay.
+      leadFrames: 5,
       startDelayMs: 0,
       padFrameBytes: 0,
       playbackSlowdown: 1.01,
@@ -290,7 +302,26 @@ export class LiveScreen {
       const rgba = this.pending;
       this.pending = undefined;
       const { bytes } = st.enc.next(rgba, this.padFor(st));
+      // While this frame is being written, playback keeps moving. Make sure it (plus the screen's
+      // read-ahead) can't reach the frame before it's all in flash: first add "no change" frames
+      // until there's enough lead. Each costs ~7 ms to write and buys a whole frame of time.
+      const writeFrames = Math.ceil(bytes.length / this.bytesPerMs / this.frameMs);
+      const need = READAHEAD_FRAMES + writeFrames;
+      let padded = 0;
+      while (this.ahead(st) < need && st.left > bytes.length + 2000) {
+        const e = st.enc.empty(this.padFor(st));
+        await this.s.writeAt(st.addr, e);
+        st.offset += e.length;
+        st.written++;
+        this.stats.emptyFrames++;
+        padded++;
+      }
+      if (padded) this.stats.leadPadding += padded;
+      const t0 = performance.now();
       await this.s.writeAt(st.addr, bytes);
+      const ms = performance.now() - t0;
+      // Big writes give a fair speed sample; average them so one hiccup doesn't swing it.
+      if (bytes.length > 2000 && ms > 0) this.bytesPerMs = 0.8 * this.bytesPerMs + 0.2 * (bytes.length / ms);
       st.offset += bytes.length;
       this.last = rgba;
       st.content = rgba;
