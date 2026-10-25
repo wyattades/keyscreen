@@ -113,8 +113,24 @@ const shots: { label: string; setup: () => Promise<void>; wait: number }[] = [
   { label: "Stars", setup: async () => {}, wait: 2000 },
   { label: "Message", setup: () => post("/text", "Lunch at 1?"), wait: 600 },
   { label: "Image", setup: () => post("/image", sunset()), wait: 600 },
+  {
+    label: "Sand",
+    setup: async () => {
+      // Two sweeps of sand, a stone ledge, then water poured on top (captured mid-pour).
+      for (let i = 0; i <= 120; i++) {
+        await post("/api/input", { type: "pointer", x: 0.1 + 0.6 * Math.abs(Math.sin(i / 38)), y: 0.08 });
+        await sleep(60);
+      }
+      await post("/api/input", { type: "click", button: "left" });
+      for (let i = 0; i <= 40; i++) {
+        await post("/api/input", { type: "pointer", x: 0.8, y: 0.12 });
+        await sleep(60);
+      }
+    },
+    wait: 100,
+  },
 ];
-const ids = ["draw", "ticker", "clock", "sysmon", "life", "stars", "message", "image"];
+const ids = ["draw", "ticker", "clock", "sysmon", "life", "stars", "message", "image", "sand"];
 
 try {
   for (let i = 0; i < 40; i++) {

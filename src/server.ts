@@ -92,7 +92,7 @@ export function startServer(opts: ServerOptions = {}) {
     else if (msg.type === "text" && typeof msg.text === "string" && mode?.id !== "message") {
       setMode("message");
       mode!.input?.(msg);
-    } else if (msg.type === "key" && mode?.id !== "ticker") {
+    } else if (msg.type === "key" && mode?.id !== "ticker" && mode?.id !== "sand") {
       setMode("ticker");
       mode!.input?.(msg);
     } else mode?.input?.(msg);

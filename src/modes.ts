@@ -6,6 +6,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { Canvas, H, W, hsv, type RGB } from "./canvas.ts";
 import { GLYPH_H, glyph } from "./font.ts";
 import { onTypedChar } from "./keys.ts";
+import { SandMode } from "./sand-mode.ts";
 import { renderText } from "./textframe.ts";
 
 export interface ModeContext {
@@ -589,5 +590,6 @@ export function allModes(): Mode[] {
     new StarsMode(),
     new MessageMode(),
     new ImageMode(),
+    new SandMode(),
   ];
 }

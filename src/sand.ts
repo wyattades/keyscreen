@@ -20,6 +20,15 @@ export const MATERIALS = [
   { id: M.Fire, name: "Fire" },
 ] as const;
 
+/** A typical colour per material (for a swatch). */
+export const SWATCH: Record<number, RGB> = {
+  [M.Sand]: [230, 180, 90],
+  [M.Water]: [40, 125, 230],
+  [M.Stone]: [125, 125, 135],
+  [M.Plant]: [40, 185, 60],
+  [M.Fire]: [255, 150, 20],
+};
+
 export class SandWorld {
   readonly w: number;
   readonly h: number;

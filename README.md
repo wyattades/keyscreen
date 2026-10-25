@@ -51,16 +51,17 @@ pnpm keyscreen help                # everything else
 The server streams live content to the screen (~0.4 s delay, no "Downloading" after the first-run setup). The
 keyboard shows it on its GIF page: press **Fn + Right Shift** to get there. Modes:
 
-| Mode      | What it shows                                                                       |
-| --------- | ----------------------------------------------------------------------------------- |
-| `draw`    | what you draw on the page's canvas, in real time                                    |
-| `ticker`  | the last letters typed, scrolling like an LED sign, with sparkles on each key press |
-| `clock`   | time with live seconds, and the date                                                |
-| `sysmon`  | CPU, memory, network, CPU graph                                                     |
-| `life`    | Conway's Game of Life, one cell per 4x4 tile                                        |
-| `stars`   | stars rushing toward you                                                            |
-| `message` | a typed message, auto-sized                                                         |
-| `image`   | an uploaded PNG, scaled to fit                                                      |
+| Mode      | What it shows                                                                                   |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| `draw`    | what you draw on the page's canvas, in real time                                                |
+| `ticker`  | the last letters typed, scrolling like an LED sign, with sparkles on each key press             |
+| `clock`   | time with live seconds, and the date                                                            |
+| `sysmon`  | CPU, memory, network, CPU graph                                                                 |
+| `life`    | Conway's Game of Life, one cell per 4x4 tile                                                    |
+| `stars`   | stars rushing toward you                                                                        |
+| `message` | a typed message, auto-sized                                                                     |
+| `image`   | an uploaded PNG, scaled to fit                                                                  |
+| `sand`    | falling sand that pours wherever your mouse is; click to change material, type to blast craters |
 
 ### While the computer is locked
 

@@ -499,7 +499,14 @@
         const m = status.modes.find((x) => x.id === id);
         const p = $("#panel");
         p.innerHTML = `<h2>${esc(m.name)}</h2><div class="muted">${esc(m.blurb)}</div>`;
-        ({ draw: drawPanel, ticker: tickerPanel, message: messagePanel, image: imagePanel, life: lifePanel })[id]?.(p);
+        ({
+          draw: drawPanel,
+          ticker: tickerPanel,
+          message: messagePanel,
+          image: imagePanel,
+          life: lifePanel,
+          sand: sandPanel,
+        })[id]?.(p);
       }
 
       function drawPanel(p) {
@@ -629,6 +636,55 @@
           drop.classList.remove("over");
           upload(e.dataTransfer.files[0]);
         };
+      }
+
+      // Sand: a pad that stands in for the computer's mouse and keys (useful without the input group).
+      function sandPanel(p) {
+        p.insertAdjacentHTML(
+          "beforeend",
+          `<div class="muted" style="margin-top:8px">Move over the pad to pour. Click: next material. Right-click: crater. Wheel: size. Type while it's focused: craters (space quakes, enter flushes).</div>
+          <img id="sandPad" class="screen" tabindex="0" style="max-width:720px;margin-top:10px;cursor:crosshair;outline-offset:3px">
+          <div class="row"><button class="act" id="sandClear">Clear</button></div>`,
+        );
+        const pad = $("#sandPad");
+        const refresh = () => {
+          if (!document.body.contains(pad)) return;
+          const img = new Image();
+          img.onload = () => {
+            pad.src = img.src;
+            setTimeout(refresh, 120);
+          };
+          img.onerror = () => setTimeout(refresh, 1000);
+          img.src = `/frame.png?t=${Date.now()}`;
+        };
+        refresh();
+        let last = 0;
+        pad.onpointermove = (e) => {
+          const now = performance.now();
+          if (now - last < 40) return;
+          last = now;
+          const r = pad.getBoundingClientRect();
+          send({ type: "pointer", x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
+        };
+        pad.onclick = () => {
+          pad.focus();
+          send({ type: "click", button: "left" });
+        };
+        pad.oncontextmenu = (e) => {
+          e.preventDefault();
+          send({ type: "click", button: "right" });
+        };
+        pad.onwheel = (e) => {
+          e.preventDefault();
+          send({ type: "wheel", steps: Math.sign(-e.deltaY) });
+        };
+        pad.onkeydown = (e) => {
+          const key = e.key === "Enter" ? "\n" : e.key;
+          if (key.length !== 1 && key !== "\n") return;
+          e.preventDefault();
+          send({ type: "key", key });
+        };
+        $("#sandClear").onclick = () => send({ type: "clear" });
       }
 
       function lifePanel(p) {
