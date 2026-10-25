@@ -24,6 +24,8 @@ export interface Mode {
   stop(): void;
   /** Messages from the page (JSON already parsed). */
   input?(msg: Record<string, unknown>): void;
+  /** Mode-specific state for the dashboard (in /api/status as modeState). */
+  state?(): Record<string, unknown>;
 }
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -34,7 +36,7 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 export class DrawMode implements Mode {
   id = "draw";
   name = "Draw";
-  blurb = "Draw on the canvas; it shows up on the keyboard.";
+  blurb = "Draw right on the dashboard's picture of the screen; it shows up on the keyboard.";
   private c = new Canvas();
   private dirty = true;
   private timer?: ReturnType<typeof setInterval>;

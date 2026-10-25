@@ -192,6 +192,7 @@ export function startServer(opts: ServerOptions = {}) {
     mode: mode?.id,
     note,
     keySource: mode instanceof TickerMode ? mode.keySource : null,
+    modeState: mode?.state?.() ?? null,
     modes: modes.map((m) => ({ id: m.id, name: m.name, blurb: m.blurb })),
     stats: service.stats ?? null,
     sleep: {

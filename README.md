@@ -132,6 +132,11 @@ server first if it's stopped). Right-click for Start/Stop server. The dashboard'
 
 To start it at boot before anyone logs in, also run `loginctl enable-linger`.
 
+`install.sh` also installs `keyscreen-pointer`, a tiny GNOME Shell extension (`desktop/gnome-extension/`) that tells
+the server where the mouse pointer is, since Wayland doesn't let other programs ask. Sand mode uses it to pour exactly
+under the pointer; without it, the position is estimated from the mouse's movement and drifts near the edges. GNOME
+loads a newly installed extension after you log out and back in.
+
 ## Layout
 
 | Path                            | What's in it                                                                                                  |

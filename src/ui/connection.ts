@@ -21,6 +21,8 @@ export interface Status {
   mode?: string;
   note: string;
   keySource: "keyboard" | "page" | null;
+  /** Mode-specific state, e.g. Sand's material and size. */
+  modeState: Record<string, any> | null;
   modes: ModeInfo[];
   stats: { contentFrames: number; rotations: number } | null;
   sleep: {

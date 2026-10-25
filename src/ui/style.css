@@ -160,16 +160,33 @@ h1::after {
   display: none;
 }
 .bezel {
-  position: relative;
   padding: 6px;
 }
+.screenbox {
+  position: relative;
+  margin: 6px 0 10px;
+}
+.screenbox .screen {
+  margin: 0;
+}
 /* Faint scanlines over the screen, like a small LCD up close. */
-.bezel::after {
+.screenbox::after {
   content: "";
   position: absolute;
-  inset: 12px 6px 16px;
+  inset: 0;
   pointer-events: none;
   background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0 1px, transparent 1px 3px);
+}
+/* Draw mode: strokes go on this layer over the live picture. */
+.ink {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+  image-rendering: pixelated;
+  z-index: 1;
 }
 .stats {
   font-size: 18px;
@@ -292,19 +309,6 @@ button.primary {
   color: var(--ink);
   border-color: var(--accent);
 }
-#pad {
-  display: block;
-  width: 100%;
-  max-width: 720px;
-  aspect-ratio: 240 / 136;
-  margin-top: 10px;
-  background: #000;
-  border: 2px solid var(--line);
-  outline: 6px solid #232233;
-  touch-action: none;
-  cursor: crosshair;
-  image-rendering: pixelated;
-}
 .swatch {
   width: 26px;
   height: 26px;
@@ -361,8 +365,21 @@ textarea {
   color: var(--text);
 }
 .sandpad {
-  max-width: 720px;
   cursor: crosshair;
+}
+button.material {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+button.material.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.dot {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #000;
 }
 
 /* ---- server log, like a terminal ---- */

@@ -1,0 +1,7 @@
+{
+  "uuid": "keyscreen-pointer@keyscreen",
+  "name": "keyscreen pointer",
+  "description": "Tells the keyscreen server where the mouse pointer is (Wayland doesn't let other programs ask). Only active while keyscreen's Sand mode is watching.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "url": "https://github.com/wyattades/keyscreen"
+}

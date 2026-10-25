@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { conn, post, type Status } from "./connection.ts";
-import { ModePanel } from "./panels.tsx";
-import { LiveCanvas, SleepSection, StripCanvas, useStrips } from "./sleep.tsx";
+import { defaultBrush, ModePanel } from "./panels.tsx";
+import { Preview, type Brush } from "./preview.tsx";
+import { SleepSection, useStrips } from "./sleep.tsx";
 
 type Down = "stopped" | "unreachable" | null;
 
@@ -13,6 +14,7 @@ function App() {
   const [down, setDown] = useState<Down>(null);
   const [stopping, setStopping] = useState(false);
   const [uploads, setUploads] = useState(0);
+  const [brush, setBrush] = useState<Brush>(defaultBrush);
 
   const refresh = useCallback(async () => {
     try {
@@ -63,9 +65,7 @@ function App() {
       <div className="grid">
         <section className="card">
           <h2>On the keyboard</h2>
-          <div className="bezel">
-            {sleepStrip ? <StripCanvas className="screen" strip={sleepStrip} /> : <LiveCanvas className="screen" />}
-          </div>
+          <Preview status={status} sleepStrip={sleepStrip} brush={brush} />
           <div className="stats">
             {status.stats &&
               `${status.stats.contentFrames} frames sent · ${status.stats.rotations} flash recycles · the keyboard shows each frame ~0.4 s after it appears here`}
@@ -84,7 +84,7 @@ function App() {
           {status.note && <div className="banner">{status.note}</div>}
         </section>
       </div>
-      <ModePanel key={status.mode} status={status} />
+      <ModePanel key={status.mode} status={status} brush={brush} setBrush={setBrush} />
       <SleepSection status={status} strips={strips} refresh={refresh} onUploaded={() => setUploads((n) => n + 1)} />
       <div className="log">{status.log.join("\n")}</div>
     </main>

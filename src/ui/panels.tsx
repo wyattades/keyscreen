@@ -1,11 +1,21 @@
 // The controls under the mode list, one component per mode that has any.
-import { useEffect, useRef, useState } from "react";
-import { conn, post, SCREEN_H, SCREEN_W, type Status } from "./connection.ts";
-import { DropZone, LiveCanvas } from "./sleep.tsx";
+import { useState } from "react";
+import { conn, post, type Status } from "./connection.ts";
+import type { Brush } from "./preview.tsx";
+import { DropZone } from "./sleep.tsx";
 
 const send = (msg: Record<string, unknown>) => conn.send(msg);
 
-export function ModePanel({ status }: { status: Status }) {
+interface PanelProps {
+  status: Status;
+  brush: Brush;
+  setBrush: (b: Brush) => void;
+}
+
+export const defaultBrush = (): Brush => ({ color: COLORS[0], size: 2 });
+
+export function ModePanel(props: PanelProps) {
+  const { status } = props;
   const m = status.modes.find((x) => x.id === status.mode);
   if (!m) return null;
   const Panel = PANELS[m.id];
@@ -13,12 +23,12 @@ export function ModePanel({ status }: { status: Status }) {
     <section className="card panel">
       <h2>{m.name}</h2>
       <div className="muted">{m.blurb}</div>
-      {Panel && <Panel status={status} />}
+      {Panel && <Panel {...props} />}
     </section>
   );
 }
 
-const PANELS: Record<string, (p: { status: Status }) => React.ReactNode> = {
+const PANELS: Record<string, (p: PanelProps) => React.ReactNode> = {
   draw: DrawPanel,
   ticker: TickerPanel,
   message: MessagePanel,
@@ -38,87 +48,29 @@ const COLORS: [number, number, number][] = [
   [230, 90, 255],
 ];
 
-/** Draws locally right away, and sends the strokes to the server every 30 ms. */
-function DrawPanel() {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const [color, setColor] = useState(COLORS[0]);
-  const [size, setSize] = useState(2);
-  const pending = useRef<number[][]>([]);
-  const last = useRef<number[] | null>(null);
-  // Latest color/size for the flush timer without restarting it.
-  const brush = useRef({ color, size });
-  brush.current = { color, size };
-
-  const clearLocal = () => {
-    const g = ref.current!.getContext("2d")!;
-    g.fillStyle = "#000";
-    g.fillRect(0, 0, SCREEN_W, SCREEN_H);
-  };
-  useEffect(() => {
-    clearLocal();
-    const t = setInterval(() => {
-      if (!pending.current.length) return;
-      send({ type: "draw", segs: pending.current, color: brush.current.color, size: brush.current.size });
-      pending.current = [];
-    }, 30);
-    return () => clearInterval(t);
-  }, []);
-
-  const at = (e: React.PointerEvent) => {
-    const r = ref.current!.getBoundingClientRect();
-    return [((e.clientX - r.left) / r.width) * SCREEN_W, ((e.clientY - r.top) / r.height) * SCREEN_H];
-  };
-  const stroke = (a: number[], b: number[]) => {
-    const g = ref.current!.getContext("2d")!;
-    g.strokeStyle = `rgb(${color})`;
-    g.lineWidth = size * 2 + 1;
-    g.lineCap = "round";
-    g.beginPath();
-    g.moveTo(a[0], a[1]);
-    g.lineTo(b[0], b[1]);
-    g.stroke();
-    pending.current.push([...a, ...b].map(Math.round));
-  };
-
+/** Brush controls; you draw right on the "On the keyboard" preview. */
+function DrawPanel({ brush, setBrush }: PanelProps) {
   return (
     <>
-      <canvas
-        id="pad"
-        ref={ref}
-        width={SCREEN_W}
-        height={SCREEN_H}
-        onPointerDown={(e) => {
-          ref.current!.setPointerCapture(e.pointerId);
-          last.current = at(e);
-          stroke(last.current, last.current);
-        }}
-        onPointerMove={(e) => {
-          if (!last.current) return;
-          const p = at(e);
-          stroke(last.current, p);
-          last.current = p;
-        }}
-        onPointerUp={() => (last.current = null)}
-        onPointerCancel={() => (last.current = null)}
-      />
+      <p className="muted">Draw right on the picture above.</p>
       <div className="row">
         {COLORS.map((c) => (
           <span
             key={c.join()}
-            className={`swatch${c === color ? " on" : ""}`}
+            className={`swatch${c === brush.color ? " on" : ""}`}
             style={{ background: `rgb(${c})` }}
-            onClick={() => setColor(c)}
+            onClick={() => setBrush({ ...brush, color: c })}
           />
         ))}
         <span className="muted">Size</span>
-        <input type="range" min={1} max={8} value={size} onChange={(e) => setSize(Number(e.target.value))} />
-        <button
-          className="act"
-          onClick={() => {
-            clearLocal();
-            send({ type: "clear" });
-          }}
-        >
+        <input
+          type="range"
+          min={1}
+          max={8}
+          value={brush.size}
+          onChange={(e) => setBrush({ ...brush, size: Number(e.target.value) })}
+        />
+        <button className="act" onClick={() => send({ type: "clear" })}>
           Clear
         </button>
       </div>
@@ -197,42 +149,43 @@ function LifePanel() {
   );
 }
 
-/** A live pad that stands in for the computer's mouse and keys (useful without the input group). */
-function SandPanel() {
-  const lastMove = useRef(0);
+/** Material, size and clear. The pointer itself comes from the computer's mouse. */
+function SandPanel({ status }: PanelProps) {
+  const st = status.modeState as {
+    material: number;
+    materials: { name: string; color: [number, number, number] }[];
+    size: number;
+    pointerSource: "gnome" | "estimate" | "page";
+  } | null;
+  if (!st) return null;
   return (
     <>
-      <div className="muted" style={{ marginTop: 8 }}>
-        Move over the pad to pour. Click: next material. Right-click: crater. Wheel: size. Type while it's focused:
-        craters (space quakes, enter flushes).
-      </div>
-      <LiveCanvas
-        className="screen sandpad"
-        tabIndex={0}
-        onPointerMove={(e) => {
-          const now = performance.now();
-          if (now - lastMove.current < 40) return;
-          lastMove.current = now;
-          const r = e.currentTarget.getBoundingClientRect();
-          send({ type: "pointer", x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
-        }}
-        onClick={(e) => {
-          e.currentTarget.focus();
-          send({ type: "click", button: "left" });
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          send({ type: "click", button: "right" });
-        }}
-        onWheel={(e) => send({ type: "wheel", steps: Math.sign(-e.deltaY) })}
-        onKeyDown={(e) => {
-          const key = e.key === "Enter" ? "\n" : e.key;
-          if (key.length !== 1) return;
-          e.preventDefault();
-          send({ type: "key", key });
-        }}
-      />
+      <p className="muted">
+        {st.pointerSource === "page"
+          ? "Move over the picture above to pour; click it for the next material, right-click for a crater."
+          : "Move your mouse anywhere on your monitor to pour. Left click: next material. Right click: crater. Wheel: size. Typing blasts craters (space quakes, enter flushes)."}
+      </p>
       <div className="row">
+        {st.materials.map((m, i) => (
+          <button
+            key={m.name}
+            className={`act material${i === st.material ? " on" : ""}`}
+            onClick={() => send({ type: "material", index: i })}
+          >
+            <span className="dot" style={{ background: `rgb(${m.color})` }} />
+            {m.name}
+          </button>
+        ))}
+      </div>
+      <div className="row">
+        <span className="muted">Size</span>
+        <input
+          type="range"
+          min={1}
+          max={6}
+          value={st.size}
+          onChange={(e) => send({ type: "size", n: Number(e.target.value) })}
+        />
         <button className="act" onClick={() => send({ type: "clear" })}>
           Clear
         </button>
