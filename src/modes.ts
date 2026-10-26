@@ -235,7 +235,7 @@ export class TickerMode implements Mode {
 export class ClockMode implements Mode {
   id = "clock";
   name = "Clock";
-  blurb = "Time with live seconds, and the date.";
+  blurb = "A big clock with live seconds and the date";
   private timer?: ReturnType<typeof setInterval>;
   private shown = "";
 
@@ -277,7 +277,7 @@ export class ClockMode implements Mode {
 export class SysmonMode implements Mode {
   id = "sysmon";
   name = "System monitor";
-  blurb = "Live usage stats: CPU, GPU, memory, network, temp, time";
+  blurb = "Usage stats: CPU, GPU, memory, network, temp, time";
   private timer?: ReturnType<typeof setInterval>;
   private prevCpu?: { idle: number; total: number };
   private prevNet?: { rx: number; tx: number; t: number };
@@ -579,7 +579,7 @@ export class StarsMode implements Mode {
 export class MessageMode implements Mode {
   id = "message";
   name = "Message";
-  blurb = "Type a message on the page; it shows big on the keyboard.";
+  blurb = "Show any message, big and bold";
   private text = "HELLO!";
   private ctx?: ModeContext;
 
@@ -606,7 +606,7 @@ export class MessageMode implements Mode {
 export class ImageMode implements Mode {
   id = "image";
   name = "Image";
-  blurb = "Upload a picture; it's scaled to fit the screen.";
+  blurb = "Your own picture, scaled to fit";
   last?: Uint8Array;
   private ctx?: ModeContext;
 
