@@ -32,7 +32,7 @@ const ROW_OFFSET = [0, 0.04, 0.07, 0.1];
 export class SandMode implements Mode {
   id = "sand";
   name = "Sand";
-  blurb = "Sand pours wherever your mouse is. Click to change material, type to blast craters.";
+  blurb = "Sand pours where your mouse is. Click to switch material.";
   /**
    * Where the pointer position comes from: the GNOME extension (exact), the mouse's raw movement
    * (estimated), or the dashboard page (no /dev/input access).
