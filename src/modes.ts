@@ -36,7 +36,7 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 export class DrawMode implements Mode {
   id = "draw";
   name = "Draw";
-  blurb = "Draw on the picture above; it shows up on the keyboard.";
+  blurb = "Draw your own artwork live on your keyscreen";
   /** Called (at most once a second) with the drawing after it changes, to save it. */
   onChange: ((rgba: Uint8Array) => void) | undefined;
   /** Finished strokes. */
@@ -118,7 +118,7 @@ export class DrawMode implements Mode {
 export class TickerMode implements Mode {
   id = "ticker";
   name = "Key ticker";
-  blurb = "What you type scrolls by like an LED sign, with sparkles.";
+  blurb = "Global key-presses scroll by, with sparkles";
   private text = "";
   private end = 0; // text column shown at the board's right edge; slides toward the newest letter
   private sparkles: { x: number; y: number; age: number; life: number; color: RGB; r: number }[] = [];
@@ -277,7 +277,7 @@ export class ClockMode implements Mode {
 export class SysmonMode implements Mode {
   id = "sysmon";
   name = "System monitor";
-  blurb = "Time, CPU, GPU, memory, network and temperatures, live.";
+  blurb = "Live usage stats: CPU, GPU, memory, network, temp, time";
   private timer?: ReturnType<typeof setInterval>;
   private prevCpu?: { idle: number; total: number };
   private prevNet?: { rx: number; tx: number; t: number };
@@ -475,7 +475,7 @@ function findCpuTemp(): string | null {
 export class LifeMode implements Mode {
   id = "life";
   name = "Game of Life";
-  blurb = "Conway's Game of Life. Reseeds itself when it settles.";
+  blurb = "Conway's Game of Life!";
   private cw = W / 4;
   private ch = H / 4;
   private grid = new Uint8Array(this.cw * this.ch);
@@ -541,7 +541,7 @@ export class LifeMode implements Mode {
 export class StarsMode implements Mode {
   id = "stars";
   name = "Starfield";
-  blurb = "Stars rushing toward you, like jumping to warp speed.";
+  blurb = "Travel at light speed through the stars";
   private stars: { x: number; y: number; z: number }[] = [];
   private timer?: ReturnType<typeof setInterval>;
 
